@@ -1,0 +1,18 @@
+{
+  "types": [
+    {
+      "name": "org.apache.xml.security.signature.XMLSignature$SignedInfo"
+    },
+    {
+      "name": "org.apache.xml.security.signature.XMLSignature"
+    },
+    {
+      "name": "org.apache.xml.security.keys.KeyInfo"
+    },
+    {
+      "name": "org.apache.xml.security.transforms.Transform"
+    }
+  ],
+  "lambdaCapturingTypes": [],
+  "proxies": []
+}

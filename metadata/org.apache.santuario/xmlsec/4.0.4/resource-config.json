@@ -1,0 +1,9 @@
+{
+  "resources":{
+  "includes":[]},
+  "bundles":[
+    {
+      "name": "org.apache.xml.security.resource.xmlsecurity"
+    }
+  ]
+}

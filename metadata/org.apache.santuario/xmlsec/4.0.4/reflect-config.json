@@ -1,0 +1,69 @@
+[
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA256",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315OmitComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.IntegrityHmac$IntegrityHmacSHA256",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.signature.XMLSignature$SignedInfo",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.signature.XMLSignature",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.keys.KeyInfo",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.Transform",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformEnvelopedSignature",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.SignatureAlgorithm",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.utils.resolver.ResourceResolver",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.utils.resolver.implementations.ResolverFragment",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.Canonicalizer",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315ExclOmitComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315OmitComments",
+    "allDeclaredConstructors": true
+  }
+]
