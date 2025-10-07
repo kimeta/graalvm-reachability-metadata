@@ -1,0 +1,238 @@
+[
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315ExclOmitComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315ExclWithComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315WithComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315OmitComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315Excl",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer11_OmitComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.Canonicalizer11_WithComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.c14n.implementations.CanonicalizerPhysical",
+    "allDeclaredConstructors": true
+  },
+
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformEnvelopedSignature",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformC14NExclusive",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformC14NExclusiveWithComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformC14NWithComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformC14N11",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformC14N11_WithComments",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformC14N",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformBase64Decode",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformXPath",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformXPath2Filter",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.transforms.implementations.TransformXSLT",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSAMD5",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSARIPEMD160",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA1MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA224",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA224MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA256",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA256MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA3_224MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA3_256MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA3_384MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA3_512MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA384",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA384MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA512",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA512MGF1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASSAPSS",
+    "allDeclaredConstructors": true
+  },
+
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureDSA",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureDSA$SHA256",
+    "allDeclaredConstructors": true
+  },
+
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSARIPEMD160",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA1",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA224",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA256",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA3_224",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA3_256",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA3_384",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA3_512",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA384",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureECDSA$SignatureECDSASHA512",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureEDDSA",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureEDDSA$SignatureEd25519",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.algorithms.implementations.SignatureEDDSA$SignatureEd448",
+    "allDeclaredConstructors": true
+  },
+
+  {
+    "name": "org.apache.xml.security.utils.resolver.implementations.ResolverFragment",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.utils.resolver.implementations.ResolverXPointer",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.utils.resolver.implementations.ResolverDirectHTTP",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.utils.resolver.implementations.ResolverLocalFilesystem",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.apache.xml.security.utils.resolver.implementations.ResolverAnonymous",
+    "allDeclaredConstructors": true
+  }
+]

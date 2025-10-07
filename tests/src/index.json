@@ -347,6 +347,12 @@
     "versions" : [ "3.5.1" ]
   } ]
 }, {
+  "test-project-path" : "org.apache.santuario/xmlsec/4.0.4",
+  "libraries" : [ {
+    "name" : "org.apache.santuario:xmlsec",
+    "versions" : [ "4.0.4" ]
+  } ]
+}, {
   "test-project-path" : "org.apache.tomcat.embed/tomcat-embed-core/10.0.20",
   "libraries" : [ {
     "name" : "org.apache.tomcat.embed:tomcat-embed-core",
@@ -526,13 +532,13 @@
     "name" : "org.hibernate.orm:hibernate-core",
     "versions" : [ "6.6.0.Final" ]
   } ]
- }, {
+}, {
   "test-project-path" : "org.hibernate.orm/hibernate-core/7.0.0.Final",
   "libraries" : [ {
     "name" : "org.hibernate.orm:hibernate-core",
     "versions" : [ "7.0.0.Final" ]
   } ]
- }, {
+}, {
   "test-project-path" : "org.hibernate.orm/hibernate-core/7.1.0.Final",
   "libraries" : [ {
     "name" : "org.hibernate.orm:hibernate-core",

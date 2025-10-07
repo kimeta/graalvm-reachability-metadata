@@ -1,0 +1,12 @@
+{
+  "resources": {
+    "includes": [
+      { "pattern": "org/apache/xml/security/.*" }
+    ]
+  },
+  "bundles": [
+    {
+      "name": "org.apache.xml.security.resource.xmlsecurity"
+    }
+  ]
+}
