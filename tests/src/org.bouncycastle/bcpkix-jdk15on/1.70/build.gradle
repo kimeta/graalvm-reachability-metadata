@@ -21,8 +21,7 @@ graalvmNative {
         defaultMode = "conditional"
         modes {
             conditional {
-                userCodeFilterPath = "metadata-user-code-filter.json"
-                extraFilterPath = "metadata-extra-filter.json"
+                userCodeFilterPath = "user-code-filter.json"
             }
         }
     }
