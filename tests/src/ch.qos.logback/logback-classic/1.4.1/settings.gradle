@@ -10,4 +10,4 @@ plugins {
     id "org.graalvm.internal.tck-settings" version "1.0.0-SNAPSHOT"
 }
 
-rootProject.name = 'ch-qos-logback-tests'
+rootProject.name = 'ch.qos.logback.logback-classic_tests'
