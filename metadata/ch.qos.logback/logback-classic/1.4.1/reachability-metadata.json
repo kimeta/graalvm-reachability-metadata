@@ -1,0 +1,283 @@
+{
+  "reflection": [
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.model.processor.DefaultProcessor$$Lambda/0x000070a460206098"
+      },
+      "type": "ch.qos.logback.classic.encoder.PatternLayoutEncoder"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.model.processor.ImplicitModelHandler"
+      },
+      "type": "ch.qos.logback.classic.encoder.PatternLayoutEncoder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.pattern.parser.Compiler"
+      },
+      "type": "ch.qos.logback.classic.pattern.DateConverter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.pattern.parser.Compiler"
+      },
+      "type": "ch.qos.logback.classic.pattern.LevelConverter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.pattern.parser.Compiler"
+      },
+      "type": "ch.qos.logback.classic.pattern.LineSeparatorConverter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.pattern.parser.Compiler"
+      },
+      "type": "ch.qos.logback.classic.pattern.LoggerConverter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.pattern.parser.Compiler"
+      },
+      "type": "ch.qos.logback.classic.pattern.MessageConverter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.pattern.parser.Compiler"
+      },
+      "type": "ch.qos.logback.classic.pattern.ThreadConverter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.model.processor.AppenderModelHandler"
+      },
+      "type": "ch.qos.logback.core.ConsoleAppender",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.model.processor.DefaultProcessor$$Lambda/0x000070a460206098"
+      },
+      "type": "ch.qos.logback.core.ConsoleAppender"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.joran.util.PropertySetter"
+      },
+      "type": "ch.qos.logback.core.OutputStreamAppender",
+      "methods": [
+        {
+          "name": "setEncoder",
+          "parameterTypes": [
+            "ch.qos.logback.core.encoder.Encoder"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.model.processor.DefaultProcessor$$Lambda/0x000070a460206098"
+      },
+      "type": "ch.qos.logback.core.encoder.Encoder",
+      "methods": [
+        {
+          "name": "valueOf",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.joran.util.PropertySetter"
+      },
+      "type": "ch.qos.logback.core.encoder.LayoutWrappingEncoder",
+      "methods": [
+        {
+          "name": "setParent",
+          "parameterTypes": [
+            "ch.qos.logback.core.spi.ContextAware"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.joran.util.PropertySetter"
+      },
+      "type": "ch.qos.logback.core.pattern.PatternLayoutEncoderBase",
+      "methods": [
+        {
+          "name": "setPattern",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.model.processor.ImplicitModelHandler"
+      },
+      "type": "ch.qos.logback.core.spi.ContextAware",
+      "methods": [
+        {
+          "name": "valueOf",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.joran.event.SaxEventRecorder"
+      },
+      "type": "com.sun.org.apache.xerces.internal.jaxp.SAXParserFactoryImpl",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.io.FilePermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.lang.RuntimePermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.net.NetPermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.net.SocketPermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.net.URLPermission",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.security.AllPermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.security.SecurityPermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "java.util.PropertyPermission"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader$1"
+      },
+      "type": "javax.smartcardio.CardPermission"
+    }
+  ],
+  "resources": [
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.classic.util.ClassicEnvUtil"
+      },
+      "glob": "META-INF/services/ch.qos.logback.classic.spi.Configurator"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.joran.event.SaxEventRecorder"
+      },
+      "glob": "META-INF/services/javax.xml.parsers.SAXParserFactory"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader"
+      },
+      "glob": "logback-test.xml"
+    },
+    {
+      "condition": {
+        "typeReached": "ch.qos.logback.core.util.Loader"
+      },
+      "glob": "logback.xml"
+    }
+  ]
+}
