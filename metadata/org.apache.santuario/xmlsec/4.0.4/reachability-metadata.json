@@ -1,0 +1,238 @@
+{
+  "reflection": [
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.algorithms.implementations.SignatureBaseRSA$SignatureRSASHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.CanonicalizerPhysical",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315ExclOmitComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315OmitComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315WithComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.Canonicalizer20010315ExclWithComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.Canonicalizer11_OmitComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.c14n.implementations.Canonicalizer11_WithComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformEnvelopedSignature",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformC14NExclusive",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformC14N",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformC14NWithComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformC14NExclusiveWithComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformC14N11",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformC14N11WithComments",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformBase64Decode",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformXPath",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "type": "org.apache.xml.security.transforms.implementations.TransformXPath2Filter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "glob": "org/apache/xml/security/resource/xmlsecurity*.properties"
+    },
+    {
+      "condition": {
+        "typeReached": "org.apache.xml.security.Init"
+      },
+      "glob": "org/apache/xml/security/resource/config.xml"
+    }
+  ]
+}
