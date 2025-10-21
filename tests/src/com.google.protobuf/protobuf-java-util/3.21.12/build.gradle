@@ -7,7 +7,6 @@
 
 plugins {
     id "org.graalvm.internal.tck"
-    id "com.google.protobuf" version "0.9.1"
 }
 
 String libraryVersion = tck.testedLibraryVersion.get()
@@ -15,15 +14,6 @@ String libraryVersion = tck.testedLibraryVersion.get()
 dependencies {
     testImplementation "com.google.protobuf:protobuf-java-util:$libraryVersion"
     testImplementation 'org.assertj:assertj-core:3.22.0'
-    testImplementation 'junit:junit:4.13.2'
-    testImplementation 'com.google.truth:truth:1.1.3'
-    testProtobuf files("proto/")
-}
-
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:$libraryVersion"
-    }
 }
 
 graalvmNative {
@@ -33,11 +23,6 @@ graalvmNative {
             conditional {
                 userCodeFilterPath = "user-code-filter.json"
             }
-        }
-        metadataCopy {
-            mergeWithExisting = true
-            inputTaskNames.add("test")
-            outputDirectories.add("src/test/resources/META-INF/native-image/com.google.protobuf/protobuf-java-util")
         }
     }
 }
