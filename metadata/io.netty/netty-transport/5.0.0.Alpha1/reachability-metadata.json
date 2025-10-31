@@ -1,0 +1,509 @@
+{
+  "reflection": [
+    {
+      "condition": {
+        "typeReached": "io.netty.util.internal.PlatformDependent"
+      },
+      "type": "android.app.Application"
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap"
+      },
+      "type": "io.netty.bootstrap.ServerBootstrap$1"
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap$1"
+      },
+      "type": "io.netty.bootstrap.ServerBootstrap$ServerBootstrapAcceptor",
+      "methods": [
+        {
+          "name": "channelRead",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.buffer.AbstractReferenceCountedByteBuf"
+      },
+      "type": "io.netty.buffer.AbstractReferenceCountedByteBuf",
+      "fields": [
+        {
+          "name": "refCnt"
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.Bootstrap"
+      },
+      "type": "io.netty.channel.ChannelHandlerAdapter",
+      "methods": [
+        {
+          "name": "channelRead",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap"
+      },
+      "type": "io.netty.channel.ChannelHandlerAdapter",
+      "methods": [
+        {
+          "name": "channelRead",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap$1"
+      },
+      "type": "io.netty.channel.ChannelHandlerAdapter",
+      "methods": [
+        {
+          "name": "channelRegistered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap$ServerBootstrapAcceptor"
+      },
+      "type": "io.netty.channel.ChannelHandlerAdapter",
+      "methods": [
+        {
+          "name": "channelRead",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.channel.DefaultChannelHandlerContext"
+      },
+      "type": "io.netty.channel.ChannelHandlerAdapter",
+      "methods": [
+        {
+          "name": "bind",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.net.SocketAddress",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "channelActive",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelInactive",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelReadComplete",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelWritabilityChanged",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "close",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "connect",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.net.SocketAddress",
+            "java.net.SocketAddress",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "disconnect",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "flush",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "handlerAdded",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "handlerRemoved",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "read",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "userEventTriggered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "write",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object",
+            "io.netty.channel.ChannelPromise"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.channel.DefaultChannelPipeline"
+      },
+      "type": "io.netty.channel.ChannelHandlerAdapter",
+      "methods": [
+        {
+          "name": "channelRead",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "channelRegistered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.Bootstrap"
+      },
+      "type": "io.netty.channel.ChannelInitializer",
+      "methods": [
+        {
+          "name": "channelRegistered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap"
+      },
+      "type": "io.netty.channel.ChannelInitializer",
+      "methods": [
+        {
+          "name": "channelRegistered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap$ServerBootstrapAcceptor"
+      },
+      "type": "io.netty.channel.ChannelInitializer",
+      "methods": [
+        {
+          "name": "channelRegistered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.channel.ChannelOutboundBuffer"
+      },
+      "type": "io.netty.channel.ChannelOutboundBuffer",
+      "fields": [
+        {
+          "name": "totalPendingSize"
+        },
+        {
+          "name": "writable"
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.channel.DefaultChannelPipeline"
+      },
+      "type": "io.netty.channel.DefaultChannelPipeline$HeadHandler",
+      "methods": [
+        {
+          "name": "bind",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.net.SocketAddress",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "close",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "connect",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.net.SocketAddress",
+            "java.net.SocketAddress",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "disconnect",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "io.netty.channel.ChannelPromise"
+          ]
+        },
+        {
+          "name": "read",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "write",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object",
+            "io.netty.channel.ChannelPromise"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.channel.DefaultChannelPipeline"
+      },
+      "type": "io.netty.channel.DefaultChannelPipeline$TailHandler",
+      "methods": [
+        {
+          "name": "channelActive",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelInactive",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelRead",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        },
+        {
+          "name": "channelReadComplete",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelRegistered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "channelWritabilityChanged",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext"
+          ]
+        },
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        },
+        {
+          "name": "userEventTriggered",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap$ServerBootstrapChannelFactory"
+      },
+      "type": "io.netty.channel.socket.nio.NioServerSocketChannel",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "io.netty.channel.EventLoop",
+            "io.netty.channel.EventLoopGroup"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.Bootstrap$BootstrapChannelFactory"
+      },
+      "type": "io.netty.channel.socket.nio.NioSocketChannel",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "io.netty.channel.EventLoop"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.util.DefaultAttributeMap"
+      },
+      "type": "io.netty.util.DefaultAttributeMap",
+      "fields": [
+        {
+          "name": "map"
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.Bootstrap"
+      },
+      "type": "netty.NettyTests$1"
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.Bootstrap"
+      },
+      "type": "netty.NettyTests$1$1",
+      "methods": [
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.Bootstrap"
+      },
+      "type": "netty.NettyTests$2$1",
+      "methods": [
+        {
+          "name": "exceptionCaught",
+          "parameterTypes": [
+            "io.netty.channel.ChannelHandlerContext",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.netty.bootstrap.ServerBootstrap$ServerBootstrapAcceptor"
+      },
+      "type": "netty.NettyTests$2"
+    }
+  ]
+}
