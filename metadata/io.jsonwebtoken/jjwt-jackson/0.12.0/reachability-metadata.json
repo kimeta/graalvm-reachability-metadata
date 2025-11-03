@@ -1,0 +1,1236 @@
+{
+  "reflection": [
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.jackson.io.JacksonSerializer"
+      },
+      "type": "com.fasterxml.jackson.databind.ext.Java7SupportImpl",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.fasterxml.jackson.databind.ext.Java7SupportImpl",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.jackson.io.JacksonSerializer"
+      },
+      "type": "com.fasterxml.jackson.databind.ser.Serializers[]"
+    },
+    {
+      "type": "com.fasterxml.jackson.databind.ser.Serializers[]",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.DefaultMacAlgorithm$1"
+      },
+      "type": "com.sun.crypto.provider.HmacCore$HmacSHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.sun.crypto.provider.HmacCore$HmacSHA256",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.DefaultMacAlgorithm$1"
+      },
+      "type": "com.sun.crypto.provider.HmacCore$HmacSHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.sun.crypto.provider.HmacCore$HmacSHA384",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.DefaultMacAlgorithm$1"
+      },
+      "type": "com.sun.crypto.provider.HmacCore$HmacSHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.sun.crypto.provider.HmacCore$HmacSHA512",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$KeyGeneratorFactory"
+      },
+      "type": "com.sun.crypto.provider.KeyGeneratorCore$HmacKG$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.sun.crypto.provider.KeyGeneratorCore$HmacKG$SHA256",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$KeyGeneratorFactory"
+      },
+      "type": "com.sun.crypto.provider.KeyGeneratorCore$HmacKG$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.sun.crypto.provider.KeyGeneratorCore$HmacKG$SHA384",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$KeyGeneratorFactory"
+      },
+      "type": "com.sun.crypto.provider.KeyGeneratorCore$HmacKG$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.sun.crypto.provider.KeyGeneratorCore$HmacKG$SHA512",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.Claims"
+    },
+    {
+      "type": "io.jsonwebtoken.Claims",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.Header"
+    },
+    {
+      "type": "io.jsonwebtoken.Header",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.Identifiable"
+    },
+    {
+      "type": "io.jsonwebtoken.Identifiable",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.JwsHeader"
+    },
+    {
+      "type": "io.jsonwebtoken.JwsHeader",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.ProtectedHeader"
+    },
+    {
+      "type": "io.jsonwebtoken.ProtectedHeader",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultClaims",
+      "allDeclaredFields": true
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultClaims",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultClaimsBuilder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultClaimsBuilder",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultHeader",
+      "allDeclaredFields": true
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultHeader",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultJwsHeader",
+      "allDeclaredFields": true
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultJwsHeader",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultJwtBuilder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultJwtBuilder",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultJwtParserBuilder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultJwtParserBuilder",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.impl.DefaultProtectedHeader",
+      "allDeclaredFields": true
+    },
+    {
+      "type": "io.jsonwebtoken.impl.DefaultProtectedHeader",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.jackson.io.JacksonSerializer"
+      },
+      "type": "io.jsonwebtoken.impl.ParameterMap",
+      "allDeclaredFields": true
+    },
+    {
+      "type": "io.jsonwebtoken.impl.ParameterMap",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts$ZIP"
+      },
+      "type": "io.jsonwebtoken.impl.io.StandardCompressionAlgorithms",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.io.StandardCompressionAlgorithms",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.jackson.io.JacksonSerializer"
+      },
+      "type": "io.jsonwebtoken.impl.lang.Nameable"
+    },
+    {
+      "type": "io.jsonwebtoken.impl.lang.Nameable",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.jackson.io.JacksonSerializer"
+      },
+      "type": "io.jsonwebtoken.impl.lang.ParameterReadable"
+    },
+    {
+      "type": "io.jsonwebtoken.impl.lang.ParameterReadable",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.security.Keys"
+      },
+      "type": "io.jsonwebtoken.impl.security.KeysBridge"
+    },
+    {
+      "type": "io.jsonwebtoken.impl.security.KeysBridge",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts$ENC"
+      },
+      "type": "io.jsonwebtoken.impl.security.StandardEncryptionAlgorithms",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.security.StandardEncryptionAlgorithms",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts$KEY"
+      },
+      "type": "io.jsonwebtoken.impl.security.StandardKeyAlgorithms",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.security.StandardKeyAlgorithms",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.security.Jwks$OP"
+      },
+      "type": "io.jsonwebtoken.impl.security.StandardKeyOperations",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.security.StandardKeyOperations",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.Jwts$SIG"
+      },
+      "type": "io.jsonwebtoken.impl.security.StandardSecureDigestAlgorithms",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.jsonwebtoken.impl.security.StandardSecureDigestAlgorithms",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.DefaultJwtBuilder"
+      },
+      "type": "io.jsonwebtoken.security.X509Accessor"
+    },
+    {
+      "type": "io.jsonwebtoken.security.X509Accessor",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.lang.Classes"
+      },
+      "type": "java.io.ByteArrayInputStream",
+      "fields": [
+        {
+          "name": "buf"
+        }
+      ]
+    },
+    {
+      "type": "java.io.ByteArrayInputStream",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate"
+      },
+      "type": "java.security.AlgorithmParametersSpi"
+    },
+    {
+      "type": "java.security.AlgorithmParametersSpi",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "java.security.SecureRandomParameters"
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.Randoms"
+      },
+      "type": "java.security.SecureRandomParameters"
+    },
+    {
+      "type": "java.security.SecureRandomParameters",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "java.security.interfaces.ECPrivateKey"
+    },
+    {
+      "type": "java.security.interfaces.ECPrivateKey",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "java.security.interfaces.ECPublicKey"
+    },
+    {
+      "type": "java.security.interfaces.ECPublicKey",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.lang.OptionalMethodInvoker"
+      },
+      "type": "java.security.interfaces.EdECKey",
+      "methods": [
+        {
+          "name": "getParams",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "java.security.interfaces.EdECKey",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "getParams",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "java.security.interfaces.RSAPrivateKey"
+    },
+    {
+      "type": "java.security.interfaces.RSAPrivateKey",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "java.security.interfaces.RSAPublicKey"
+    },
+    {
+      "type": "java.security.interfaces.RSAPublicKey",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.lang.OptionalMethodInvoker"
+      },
+      "type": "java.security.interfaces.XECKey",
+      "methods": [
+        {
+          "name": "getParams",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "java.security.interfaces.XECKey",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "getParams",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.lang.OptionalMethodInvoker"
+      },
+      "type": "java.security.spec.NamedParameterSpec",
+      "methods": [
+        {
+          "name": "getName",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "java.security.spec.NamedParameterSpec",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "getName",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.jackson.io.JacksonSerializer"
+      },
+      "type": "java.util.Map"
+    },
+    {
+      "type": "java.util.Map",
+      "allDeclaredFields": true,
+      "allPublicFields": true
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.NativePRNG",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.security.SecureRandomParameters"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.Randoms"
+      },
+      "type": "sun.security.provider.NativePRNG",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.security.SecureRandomParameters"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.NativePRNG",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.security.SecureRandomParameters"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.DefaultMacAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$2"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$MessageDigestFactory"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$SignatureFactory"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA2$SHA256",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.DefaultMacAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA5$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA5$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$2"
+      },
+      "type": "sun.security.provider.SHA5$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$SignatureFactory"
+      },
+      "type": "sun.security.provider.SHA5$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA5$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.provider.SHA5$SHA384",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA5$SHA384",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.DefaultMacAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA5$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA5$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.EcSignatureAlgorithm$2"
+      },
+      "type": "sun.security.provider.SHA5$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$SignatureFactory"
+      },
+      "type": "sun.security.provider.SHA5$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.provider.SHA5$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.provider.SHA5$SHA512",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA5$SHA512",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate"
+      },
+      "type": "sun.security.rsa.RSAKeyPairGenerator$Legacy",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.rsa.RSAKeyPairGenerator$Legacy",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate"
+      },
+      "type": "sun.security.rsa.RSAKeyPairGenerator$PSS",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.rsa.RSAKeyPairGenerator$PSS",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.rsa.RSAPSSSignature",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.rsa.RSAPSSSignature",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.rsa.RSAPSSSignature",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.rsa.RSASignature$SHA256withRSA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.rsa.RSASignature$SHA256withRSA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.rsa.RSASignature$SHA256withRSA",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.rsa.RSASignature$SHA384withRSA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.rsa.RSASignature$SHA384withRSA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.rsa.RSASignature$SHA384withRSA",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$1"
+      },
+      "type": "sun.security.rsa.RSASignature$SHA512withRSA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.RsaSignatureAlgorithm$2"
+      },
+      "type": "sun.security.rsa.RSASignature$SHA512withRSA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.rsa.RSASignature$SHA512withRSA",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.lang.OptionalMethodInvoker"
+      },
+      "type": "sun.security.util.KeyUtil",
+      "methods": [
+        {
+          "name": "getKeySize",
+          "parameterTypes": [
+            "java.security.Key"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.KeysBridge"
+      },
+      "type": "sun.security.util.KeyUtil",
+      "methods": [
+        {
+          "name": "getKeySize",
+          "parameterTypes": [
+            "java.security.Key"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.security.util.KeyUtil",
+      "allDeclaredFields": true,
+      "allPublicFields": true,
+      "methods": [
+        {
+          "name": "getKeySize",
+          "parameterTypes": [
+            "java.security.Key"
+          ]
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "condition": {
+        "typeReached": "io.jsonwebtoken.impl.security.JcaTemplate$KeyGeneratorFactory"
+      },
+      "glob": "META-INF/services/java.net.spi.URLStreamHandlerProvider"
+    }
+  ]
+}
