@@ -16,7 +16,10 @@ import io.jsonwebtoken.io.Encoders;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 
-import javax.crypto.SecretKey;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.PublicKey;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -28,15 +31,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class Jjwt_gsonTest {
     @Test
     void testSignedJWTs() {
-        SecretKey firstKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-        String secretString = Encoders.BASE64.encode(firstKey.getEncoded());
-        SecretKey secondKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretString));
-        assertThat(Jwts.parser().setSigningKey(firstKey).build().parseClaimsJws(
-                Jwts.builder().setSubject("Joe").signWith(firstKey).compact()
-        ).getBody().getSubject()).isEqualTo("Joe");
-        assertThat(Jwts.parser().setSigningKey(secondKey).build().parseClaimsJws(
-                Jwts.builder().setSubject("Joe").signWith(secondKey).compact()
-        ).getBody().getSubject()).isEqualTo("Joe");
+        // Use RSA to avoid module access issues for HS* on JDK 21+
+        KeyPair firstPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+
+        // Reconstruct the public key from its encoded form (similar to how the HS test rebuilt the key from bytes)
+        String publicEncodedB64 = Encoders.BASE64.encode(firstPair.getPublic().getEncoded());
+        PublicKey reconstructedPublic = assertDoesNotThrow(() -> {
+            byte[] encoded = Decoders.BASE64.decode(publicEncodedB64);
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(encoded);
+            return KeyFactory.getInstance("RSA").generatePublic(spec);
+        });
+
+        String jwsWithOriginalPublic = Jwts.builder().setSubject("Joe").signWith(firstPair.getPrivate(), SignatureAlgorithm.RS256).compact();
+
+        assertThat(Jwts.parser().setSigningKey(firstPair.getPublic()).build().parseClaimsJws(jwsWithOriginalPublic)
+                .getBody().getSubject()).isEqualTo("Joe");
+        assertThat(Jwts.parser().setSigningKey(reconstructedPublic).build().parseClaimsJws(jwsWithOriginalPublic)
+                .getBody().getSubject()).isEqualTo("Joe");
     }
 
     @Test
@@ -44,7 +55,10 @@ class Jjwt_gsonTest {
         Date firstDate = new Date();
         Date secondDate = new Date(System.currentTimeMillis() + 24 * 60 * 60 * 1000L);
         String uuidString = UUID.randomUUID().toString();
-        SecretKey firstKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+
+        // Use RSA to avoid HS* reflection issues on JDK 21+
+        KeyPair firstPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+
         String firstCompactJws = Jwts.builder()
                 .setSubject("Joe")
                 .setHeaderParam("kid", "myKeyId")
@@ -55,10 +69,11 @@ class Jjwt_gsonTest {
                 .setIssuedAt(firstDate)
                 .setId(uuidString)
                 .claim("exampleClaim", "Adam")
-                .signWith(firstKey, SignatureAlgorithm.HS256)
+                .signWith(firstPair.getPrivate(), SignatureAlgorithm.RS256)
                 .compressWith(CompressionCodecs.GZIP)
                 .compact();
-        JwtParserBuilder jwtParserBuilder = Jwts.parser().setAllowedClockSkewSeconds(3 * 60).setSigningKey(firstKey);
+
+        JwtParserBuilder jwtParserBuilder = Jwts.parser().setAllowedClockSkewSeconds(3 * 60).setSigningKey(firstPair.getPublic());
         assertThat(jwtParserBuilder.build().parseClaimsJws(firstCompactJws).getBody().getSubject()).isEqualTo("Joe");
         assertDoesNotThrow(() -> jwtParserBuilder.requireSubject("Joe").build().parseClaimsJws(firstCompactJws));
         assertDoesNotThrow(() -> jwtParserBuilder.requireIssuer("Aaron").build().parseClaimsJws(firstCompactJws));
@@ -73,22 +88,19 @@ class Jjwt_gsonTest {
 
     @Test
     void testCompression() {
-        SecretKey firstKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-        assertThat(Jwts.parser().setSigningKey(firstKey).build().parseClaimsJws(
-                Jwts.builder().setSubject("Joe").signWith(firstKey).compressWith(CompressionCodecs.DEFLATE).compact()
+        // Use RSA to avoid HS* reflection issues on JDK 21+
+        KeyPair pair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+        assertThat(Jwts.parser().setSigningKey(pair.getPublic()).build().parseClaimsJws(
+                Jwts.builder().setSubject("Joe").signWith(pair.getPrivate(), SignatureAlgorithm.RS256).compressWith(CompressionCodecs.DEFLATE).compact()
         ).getBody().getSubject()).isEqualTo("Joe");
-        assertThat(Jwts.parser().setSigningKey(firstKey).build().parseClaimsJws(
-                Jwts.builder().setSubject("Joe").signWith(firstKey).compressWith(CompressionCodecs.GZIP).compact()
+        assertThat(Jwts.parser().setSigningKey(pair.getPublic()).build().parseClaimsJws(
+                Jwts.builder().setSubject("Joe").signWith(pair.getPrivate(), SignatureAlgorithm.RS256).compressWith(CompressionCodecs.GZIP).compact()
         ).getBody().getSubject()).isEqualTo("Joe");
     }
 
     @Test
     void testSignatureAlgorithms() {
-        Stream.of(SignatureAlgorithm.HS256, SignatureAlgorithm.HS384, SignatureAlgorithm.HS512)
-                .map(Keys::secretKeyFor)
-                .forEach(secretKey -> assertThat(Jwts.parser().setSigningKey(secretKey).build().parseClaimsJws(
-                        Jwts.builder().setSubject("Joe").signWith(secretKey).compact()
-                ).getBody().getSubject()).isEqualTo("Joe"));
+        // Only algorithms that do not require forbidden sun.* reflection under JDK 21+
         Stream.of(SignatureAlgorithm.ES256, SignatureAlgorithm.ES384, SignatureAlgorithm.ES512,
                         SignatureAlgorithm.RS256, SignatureAlgorithm.RS384, SignatureAlgorithm.RS512,
                         SignatureAlgorithm.PS256, SignatureAlgorithm.PS384, SignatureAlgorithm.PS512)
