@@ -34,8 +34,11 @@ graalvmNative {
 }
 
 tasks.withType(Test).configureEach {
-    // JJWT 0.12.0 reflectively accesses sun.security.util.KeyUtil for key size determination.
-    // On Java 9+, the package isn't exported to the unnamed module by default.
-    // Allow reflective access to fix runtime SignatureException during tests.
-    jvmArgs '--add-exports=java.base/sun.security.util=ALL-UNNAMED'
+    // JJWT 0.12.0 uses reflection for:
+    // 1) sun.security.util.KeyUtil to determine key sizes (export required)
+    // 2) java.io.ByteArrayInputStream#buf during Base64Url decoding (open required)
+    jvmArgs(
+        '--add-exports=java.base/sun.security.util=ALL-UNNAMED',
+        '--add-opens=java.base/java.io=ALL-UNNAMED'
+    )
 }
