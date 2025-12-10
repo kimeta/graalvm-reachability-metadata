@@ -88,12 +88,12 @@ class Jjwt_gsonTest {
             }
         });
 
-        // This is an error caused by GSON's own parsing
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireExpiration(secondDate).build().parseSignedClaims(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireNotBefore(firstDate).build().parseSignedClaims(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireIssuedAt(firstDate).build().parseSignedClaims(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireId(uuidString).build().parseSignedClaims(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.require("exampleClaim", "Adam").build().parseSignedClaims(firstCompactJws));
+        // With JJWT 0.12.0 + Gson, these claim requirements should succeed
+        assertDoesNotThrow(() -> jwtParserBuilder.requireExpiration(secondDate).build().parseSignedClaims(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireNotBefore(firstDate).build().parseSignedClaims(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireIssuedAt(firstDate).build().parseSignedClaims(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireId(uuidString).build().parseSignedClaims(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.require("exampleClaim", "Adam").build().parseSignedClaims(firstCompactJws));
     }
 
     @Test
