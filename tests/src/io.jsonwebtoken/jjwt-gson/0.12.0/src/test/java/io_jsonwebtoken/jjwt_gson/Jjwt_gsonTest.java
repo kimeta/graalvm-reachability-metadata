@@ -13,17 +13,17 @@ import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.IncorrectClaimException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.io.Encoders;
-import io.jsonwebtoken.security.AsymmetricSignatureAlgorithm;
+import io.jsonwebtoken.security.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.MacAlgorithm;
 import org.junit.jupiter.api.Test;
 
 import javax.crypto.SecretKey;
 import java.security.KeyPair;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Date;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +68,7 @@ class Jjwt_gsonTest {
                 .compressWith(CompressionCodecs.GZIP)
                 .compact();
 
-        JwtParserBuilder jwtParserBuilder = Jwts.parser().clockSkew(Duration.ofMinutes(3)).verifyWith(firstKey);
+        JwtParserBuilder jwtParserBuilder = Jwts.parser().clockSkewSeconds(3 * 60).verifyWith(firstKey);
         assertThat(jwtParserBuilder.build().parseSignedClaims(firstCompactJws).getPayload().getSubject()).isEqualTo("Joe");
 
         assertDoesNotThrow(() -> jwtParserBuilder.requireSubject("Joe").build().parseSignedClaims(firstCompactJws));
@@ -81,7 +81,8 @@ class Jjwt_gsonTest {
             if (audience instanceof String) {
                 assertThat(audience).isEqualTo("Abel");
             } else if (audience instanceof Collection) {
-                assertThat((Collection<?>) audience).contains("Abel");
+                assertThat(((Collection<?>) audience).stream().map(Object::toString).collect(Collectors.toList()))
+                        .contains("Abel");
             } else {
                 fail("Unexpected 'aud' claim type: " + (audience == null ? "null" : audience.getClass().getName()));
             }
@@ -117,7 +118,7 @@ class Jjwt_gsonTest {
                 });
 
         // EC, RSA, and RSA-PSS algorithms
-        Stream.<AsymmetricSignatureAlgorithm>of(
+        Stream.<SignatureAlgorithm>of(
                         Jwts.SIG.ES256, Jwts.SIG.ES384, Jwts.SIG.ES512,
                         Jwts.SIG.RS256, Jwts.SIG.RS384, Jwts.SIG.RS512,
                         Jwts.SIG.PS256, Jwts.SIG.PS384, Jwts.SIG.PS512)
