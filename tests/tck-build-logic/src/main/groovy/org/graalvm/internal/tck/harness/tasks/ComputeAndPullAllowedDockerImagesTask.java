@@ -6,8 +6,11 @@
  */
 package org.graalvm.internal.tck.harness.tasks;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.graalvm.internal.tck.DockerUtils;
 import org.graalvm.internal.tck.harness.TckExtension;
+import org.graalvm.internal.tck.model.MetadataVersionsIndexEntry;
 import org.graalvm.internal.tck.utils.CoordinateUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
@@ -23,7 +26,9 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -85,6 +90,8 @@ public abstract class ComputeAndPullAllowedDockerImagesTask extends DefaultTask 
 
         // Collect union of required docker images
         Set<String> requiredImages = new LinkedHashSet<>();
+        ObjectMapper mapper = new ObjectMapper();
+
         for (String c : matching) {
             String[] parts = c.split(":");
             if (parts.length < 3) {
@@ -93,13 +100,45 @@ public abstract class ComputeAndPullAllowedDockerImagesTask extends DefaultTask 
             String group = parts[0];
             String artifact = parts[1];
             String version = parts[2];
-            File f = getProject().file("tests/src/" + group + "/" + artifact + "/" + version + "/required-docker-images.txt");
-            if (f.exists()) {
-                Files.readAllLines(f.toPath()).stream()
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .filter(s -> !s.startsWith("#"))
-                        .forEach(requiredImages::add);
+
+            Path indexPath = getProject().getProjectDir().toPath()
+                    .resolve("metadata")
+                    .resolve(group)
+                    .resolve(artifact)
+                    .resolve("index.json");
+            String content = Files.readString(indexPath, StandardCharsets.UTF_8);
+
+            if (content == null || content.isBlank()) {
+                throw new GradleException("Cannot find index file at: " + indexPath);
+            }
+
+            List<MetadataVersionsIndexEntry> entries = mapper.readValue(indexPath.toFile(), new TypeReference<>() {});
+
+            String testVersion = null;
+            for (MetadataVersionsIndexEntry entry : entries) {
+                // Logic: Check if the current coordinate version is in the tested list
+                if (entry.metadataVersion().equals(version)) {
+                    // Priority: 1. test-version, 2. metadata-version
+                    testVersion = entry.testVersion() != null ? entry.testVersion() : entry.metadataVersion();
+                    break;
+                }
+            }
+            if (testVersion != null) {
+                Path dockerImagesPath = getProject().getProjectDir().toPath()
+                        .resolve("tests/src")
+                        .resolve(group)
+                        .resolve(artifact)
+                        .resolve(testVersion)
+                        .resolve("required-docker-images.txt");
+
+                File f = getProject().file(dockerImagesPath);
+                if (f.exists()) {
+                    Files.readAllLines(f.toPath()).stream()
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .filter(s -> !s.startsWith("#"))
+                            .forEach(requiredImages::add);
+                }
             }
         }
 
