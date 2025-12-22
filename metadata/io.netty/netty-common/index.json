@@ -1,6 +1,5 @@
 [
   {
-    "latest" : true,
     "override" : true,
     "module" : "io.netty:netty-common",
     "metadata-version" : "4.1.115.Final",
@@ -28,6 +27,13 @@
     "metadata-version" : "4.1.80.Final",
     "tested-versions" : [
       "4.1.80.Final"
+    ]
+  }, {
+    "override" : true,
+    "module" : "io.netty:netty-common",
+    "metadata-version" : "4.2.1.Final",
+    "tested-versions" : [
+      "4.2.1.Final"
     ]
   }
 ]
