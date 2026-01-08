@@ -12,6 +12,7 @@ import org.apache.xml.security.c14n.Canonicalizer;
 import org.apache.xml.security.encryption.XMLCipher;
 import org.apache.xml.security.signature.XMLSignature;
 import org.apache.xml.security.transforms.Transforms;
+import org.apache.xml.security.utils.Constants;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -79,7 +80,7 @@ class XmlsecTest {
         signature.sign(kp.getPrivate());
 
         // Ensure a Signature element is present
-        assertThat(root.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature").getLength()).isEqualTo(1);
+        assertThat(root.getElementsByTagNameNS(Constants.SignatureSpecNS, "Signature").getLength()).isEqualTo(1);
 
         // Verify signature using the public key
         XMLSignature parsedSignature = new XMLSignature(signature.getElement(), "");
@@ -89,7 +90,7 @@ class XmlsecTest {
         // Re-serialize and reparse to ensure the signature remains valid across parsing cycles
         byte[] xmlBytes = toBytes(doc);
         Document reparsed = parseBytes(xmlBytes);
-        Element sigElem = (Element) reparsed.getElementsByTagNameNS(XMLSignature.XMLNS, "Signature").item(0);
+        Element sigElem = (Element) reparsed.getElementsByTagNameNS(Constants.SignatureSpecNS, "Signature").item(0);
         XMLSignature reparsedSig = new XMLSignature(sigElem, "");
         assertThat(reparsedSig.checkSignatureValue(kp.getPublic())).isTrue();
     }
@@ -116,8 +117,14 @@ class XmlsecTest {
         d2.appendChild(r2);
 
         Canonicalizer canon = Canonicalizer.getInstance(Canonicalizer.ALGO_ID_C14N_EXCL_OMIT_COMMENTS);
-        byte[] out1 = canon.canonicalizeSubtree(r1);
-        byte[] out2 = canon.canonicalizeSubtree(r2);
+
+        ByteArrayOutputStream bos1 = new ByteArrayOutputStream();
+        canon.canonicalizeSubtree(r1, bos1);
+        byte[] out1 = bos1.toByteArray();
+
+        ByteArrayOutputStream bos2 = new ByteArrayOutputStream();
+        canon.canonicalizeSubtree(r2, bos2);
+        byte[] out2 = bos2.toByteArray();
 
         // The canonicalized outputs must match
         assertThat(new String(out1, StandardCharsets.UTF_8)).isEqualTo(new String(out2, StandardCharsets.UTF_8));
