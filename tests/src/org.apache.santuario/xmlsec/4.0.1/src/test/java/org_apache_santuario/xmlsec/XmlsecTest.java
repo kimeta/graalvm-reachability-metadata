@@ -179,6 +179,54 @@ class XmlsecTest {
         assertThat(((Element) root.getElementsByTagNameNS("urn:test", "Other").item(0)).getTextContent()).isEqualTo("public");
     }
 
+    @Test
+    void hmacSha256SignatureOnElementById_isValidAndDetectsTampering() throws Exception {
+        // Build a document with a target element identified by ID
+        Document doc = newDocument();
+        Element root = doc.createElementNS("urn:test", "t:root");
+        root.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:t", "urn:test");
+
+        Element data = doc.createElementNS("urn:test", "t:Data");
+        data.setTextContent("important");
+        data.setAttribute("Id", "elem-1");
+        // Mark the attribute as type ID so same-document URI can resolve
+        data.setIdAttribute("Id", true);
+
+        Element other = doc.createElementNS("urn:test", "t:Other");
+        other.setTextContent("not-signed");
+
+        root.appendChild(data);
+        root.appendChild(other);
+        doc.appendChild(root);
+
+        // Create an HMAC-SHA256 XML Signature (detached same-document reference)
+        XMLSignature signature = new XMLSignature(
+                doc,
+                "",
+                XMLSignature.ALGO_ID_MAC_HMAC_SHA256,
+                Canonicalizer.ALGO_ID_C14N_EXCL_OMIT_COMMENTS
+        );
+        root.appendChild(signature.getElement());
+
+        // Reference only the Data element via its ID and canonicalize it
+        Transforms transforms = new Transforms(doc);
+        transforms.addTransform(Canonicalizer.ALGO_ID_C14N_EXCL_OMIT_COMMENTS);
+        signature.addDocument("#elem-1", transforms, MessageDigestAlgorithm.ALGO_ID_DIGEST_SHA256);
+
+        // Generate an HMAC key and sign
+        SecretKey hmacKey = KeyGenerator.getInstance("HmacSHA256").generateKey();
+        signature.sign(hmacKey);
+
+        // Verify signature is valid with the same HMAC key
+        XMLSignature parsedSignature = new XMLSignature(signature.getElement(), "");
+        assertThat(parsedSignature.checkSignatureValue(hmacKey)).isTrue();
+
+        // Tamper with the signed element content; verification must fail now
+        data.setTextContent("tampered");
+        XMLSignature tamperedSig = new XMLSignature(signature.getElement(), "");
+        assertThat(tamperedSig.checkSignatureValue(hmacKey)).isFalse();
+    }
+
     // Utility methods
 
     private static Document newDocument() throws Exception {
