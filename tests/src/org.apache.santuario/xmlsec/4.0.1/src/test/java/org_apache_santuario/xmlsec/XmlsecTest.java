@@ -9,7 +9,9 @@ package org_apache_santuario.xmlsec;
 import org.apache.xml.security.Init;
 import org.apache.xml.security.algorithms.MessageDigestAlgorithm;
 import org.apache.xml.security.c14n.Canonicalizer;
+import org.apache.xml.security.encryption.EncryptedKey;
 import org.apache.xml.security.encryption.XMLCipher;
+import org.apache.xml.security.keys.KeyInfo;
 import org.apache.xml.security.signature.XMLSignature;
 import org.apache.xml.security.transforms.Transforms;
 import org.apache.xml.security.utils.Constants;
@@ -225,6 +227,65 @@ class XmlsecTest {
         data.setTextContent("tampered");
         XMLSignature tamperedSig = new XMLSignature(signature.getElement(), "");
         assertThat(tamperedSig.checkSignatureValue(hmacKey)).isFalse();
+    }
+
+    @Test
+    void encryptElementWithAes128AndWrapKeyWithRsaOaep() throws Exception {
+        // Build a document that contains data to encrypt
+        Document doc = newDocument();
+        Element root = doc.createElementNS("urn:test", "t:root");
+        root.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:t", "urn:test");
+        Element sensitive = doc.createElementNS("urn:test", "t:Sensitive");
+        sensitive.setTextContent("classified");
+        Element publicElem = doc.createElementNS("urn:test", "t:Public");
+        publicElem.setTextContent("public-info");
+        root.appendChild(sensitive);
+        root.appendChild(publicElem);
+        doc.appendChild(root);
+
+        // Generate RSA key pair for key transport (wrapping AES key)
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048, new SecureRandom());
+        KeyPair rsaKp = kpg.generateKeyPair();
+
+        // Generate a random AES-128 content encryption key
+        SecretKey aesKey = KeyGenerator.getInstance("AES").generateKey();
+
+        // Prepare data cipher for element encryption
+        XMLCipher dataCipher = XMLCipher.getInstance(XMLCipher.AES_128);
+        dataCipher.init(XMLCipher.ENCRYPT_MODE, aesKey);
+
+        // Wrap AES key using RSA-OAEP and place it into EncryptedData/KeyInfo
+        XMLCipher keyCipher = XMLCipher.getInstance(XMLCipher.RSA_OAEP);
+        keyCipher.init(XMLCipher.WRAP_MODE, rsaKp.getPublic());
+        EncryptedKey encryptedKey = keyCipher.encryptKey(doc, aesKey);
+
+        KeyInfo ki = new KeyInfo(doc);
+        ki.add(encryptedKey);
+        dataCipher.getEncryptedData().setKeyInfo(ki);
+
+        // Encrypt the element (element encryption, not content-only)
+        dataCipher.doFinal(doc, sensitive, false);
+
+        // Assertions after encryption
+        assertThat(root.getElementsByTagNameNS("urn:test", "Sensitive").getLength()).isEqualTo(0);
+        Element encryptedData = (Element) root.getElementsByTagNameNS("http://www.w3.org/2001/04/xmlenc#", "EncryptedData").item(0);
+        assertThat(encryptedData).isNotNull();
+        // Ensure an EncryptedKey is embedded via KeyInfo
+        assertThat(encryptedData.getElementsByTagNameNS("http://www.w3.org/2001/04/xmlenc#", "EncryptedKey").getLength()).isEqualTo(1);
+
+        // Decrypt using the private RSA key to unwrap the AES key
+        XMLCipher decryptCipher = XMLCipher.getInstance();
+        decryptCipher.init(XMLCipher.DECRYPT_MODE, null);
+        decryptCipher.setKEK(rsaKp.getPrivate());
+        decryptCipher.doFinal(doc, encryptedData);
+
+        // After decryption, original element and content must be restored
+        Element restored = (Element) root.getElementsByTagNameNS("urn:test", "Sensitive").item(0);
+        assertThat(restored).isNotNull();
+        assertThat(restored.getTextContent()).isEqualTo("classified");
+        // Unrelated element remains unchanged
+        assertThat(((Element) root.getElementsByTagNameNS("urn:test", "Public").item(0)).getTextContent()).isEqualTo("public-info");
     }
 
     // Utility methods
