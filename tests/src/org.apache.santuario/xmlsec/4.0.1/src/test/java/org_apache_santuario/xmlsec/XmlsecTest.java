@@ -20,6 +20,7 @@ import org.w3c.dom.Element;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
@@ -48,6 +49,8 @@ class XmlsecTest {
         // Create a simple namespaced document
         Document doc = newDocument();
         Element root = doc.createElementNS("urn:test", "t:root");
+        // Explicitly declare the namespace prefix used in this subtree
+        root.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:t", "urn:test");
         root.setAttributeNS("urn:test", "t:attr", "value");
         Element child = doc.createElementNS("urn:test", "t:child");
         child.setTextContent("payload");
@@ -97,21 +100,23 @@ class XmlsecTest {
 
     @Test
     void exclusiveCanonicalizationProducesStableOutput() throws Exception {
-        // Build two semantically equivalent documents with different prefix and attribute ordering
+        // Build two semantically equivalent documents with same prefix and different attribute ordering
         Document d1 = newDocument();
-        Element r1 = d1.createElementNS("urn:test", "a:root");
-        r1.setAttributeNS("urn:test", "a:z", "3");
-        r1.setAttributeNS("urn:test", "a:a", "1");
-        Element c1 = d1.createElementNS("urn:test", "a:child");
+        Element r1 = d1.createElementNS("urn:test", "t:root");
+        r1.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:t", "urn:test");
+        r1.setAttributeNS("urn:test", "t:z", "3");
+        r1.setAttributeNS("urn:test", "t:a", "1");
+        Element c1 = d1.createElementNS("urn:test", "t:child");
         c1.setTextContent("text");
         r1.appendChild(c1);
         d1.appendChild(r1);
 
         Document d2 = newDocument();
-        Element r2 = d2.createElementNS("urn:test", "b:root");
-        r2.setAttributeNS("urn:test", "b:a", "1");
-        r2.setAttributeNS("urn:test", "b:z", "3");
-        Element c2 = d2.createElementNS("urn:test", "b:child");
+        Element r2 = d2.createElementNS("urn:test", "t:root");
+        r2.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:t", "urn:test");
+        r2.setAttributeNS("urn:test", "t:a", "1");
+        r2.setAttributeNS("urn:test", "t:z", "3");
+        Element c2 = d2.createElementNS("urn:test", "t:child");
         c2.setTextContent("text");
         r2.appendChild(c2);
         d2.appendChild(r2);
@@ -126,7 +131,7 @@ class XmlsecTest {
         canon.canonicalizeSubtree(r2, bos2);
         byte[] out2 = bos2.toByteArray();
 
-        // The canonicalized outputs must match
+        // The canonicalized outputs must match despite different attribute insertion order
         assertThat(new String(out1, StandardCharsets.UTF_8)).isEqualTo(new String(out2, StandardCharsets.UTF_8));
     }
 
@@ -135,6 +140,8 @@ class XmlsecTest {
         // Build a document with a secret element
         Document doc = newDocument();
         Element root = doc.createElementNS("urn:test", "t:root");
+        // Ensure the 't' prefix is declared so subtree serialization during encryption/decryption is valid
+        root.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:t", "urn:test");
         Element secret = doc.createElementNS("urn:test", "t:Secret");
         secret.setTextContent("super-secret");
         Element other = doc.createElementNS("urn:test", "t:Other");
