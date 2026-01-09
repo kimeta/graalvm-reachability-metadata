@@ -139,11 +139,13 @@ public abstract class TckExtension {
         } catch (Exception ignored) {
             // Fall through to conventional lookup
         }
+
         // Fallback: conventional layout tests/src/<group>/<artifact>/<version>
         Path conventional = testRoot().resolve(groupId).resolve(artifactId).resolve(version);
         if (Files.isDirectory(conventional)) {
             return conventional;
         }
+
         throw new RuntimeException("Missing test-directory for coordinates `" + coordinates + "`");
     }
 
