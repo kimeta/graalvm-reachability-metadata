@@ -17,4 +17,9 @@ dependencies {
     // ZooKeeper server uses Dropwizard Metrics (com.codahale.metrics.*) via an optional dependency.
     // Add it for runtime to satisfy DefaultMetricsProvider and ServerMetrics initialization.
     testRuntimeOnly 'io.dropwizard.metrics:metrics-core:4.2.25'
+
+    // ZooKeeper server optionally supports Snappy compression for snapshots/txn logs.
+    // FileTxnSnapLog/Util reference org.xerial.snappy.SnappyInputStream if present.
+    // Add snappy-java at runtime to avoid CNFE during server startup.
+    testRuntimeOnly 'org.xerial.snappy:snappy-java:1.1.10.5'
 }
