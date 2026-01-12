@@ -13,4 +13,8 @@ String libraryVersion = tck.testedLibraryVersion.get()
 dependencies {
     testImplementation "org.apache.zookeeper:zookeeper:$libraryVersion"
     testImplementation 'org.assertj:assertj-core:3.22.0'
+
+    // ZooKeeper server uses Dropwizard Metrics (com.codahale.metrics.*) via an optional dependency.
+    // Add it for runtime to satisfy DefaultMetricsProvider and ServerMetrics initialization.
+    testRuntimeOnly 'io.dropwizard.metrics:metrics-core:4.2.25'
 }
