@@ -229,6 +229,66 @@ class ZookeeperTest {
         client.delete(path, -1);
     }
 
+    @Test
+    void creatorOnlyAclEnforcedWithDigestAuth() throws Exception {
+        String path = "/it-acl-" + UUID.randomUUID();
+
+        // Create a node with creator-only ACL using a client authenticated with the 'digest' scheme
+        try (ZooKeeper creator = connect(connectString, 5000)) {
+            creator.addAuthInfo("digest", "user:pass".getBytes(UTF_8));
+            creator.create(path, "secret".getBytes(UTF_8), ZooDefs.Ids.CREATOR_ALL_ACL, CreateMode.PERSISTENT);
+
+            // An unauthenticated client should not be able to read
+            try (ZooKeeper anon = connect(connectString, 5000)) {
+                assertThatThrownBy(() -> anon.getData(path, false, null))
+                        .isInstanceOf(KeeperException.NoAuthException.class);
+
+                // Wrong credentials still fail
+                anon.addAuthInfo("digest", "user:wrong".getBytes(UTF_8));
+                assertThatThrownBy(() -> anon.getData(path, false, null))
+                        .isInstanceOf(KeeperException.NoAuthException.class);
+
+                // Correct credentials allow access
+                anon.addAuthInfo("digest", "user:pass".getBytes(UTF_8));
+                byte[] data = anon.getData(path, false, null);
+                assertThat(data).isEqualTo("secret".getBytes(UTF_8));
+            }
+
+            // Cleanup with the creator (authorized)
+            creator.delete(path, -1);
+        }
+    }
+
+    @Test
+    void chrootClientOperatesWithinIsolatedNamespace() throws Exception {
+        String chrootBase = "/it-chroot-" + UUID.randomUUID();
+        client.create(chrootBase, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+
+        // Connect using a chrooted connection string; all paths are now relative to chrootBase
+        try (ZooKeeper chrooted = connect(connectString + chrootBase, 5000)) {
+            String relPath = "/n1";
+            chrooted.create(relPath, "x".getBytes(UTF_8), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+
+            // From the chrooted client's perspective, '/n1' is the root child and data is accessible
+            Stat st = new Stat();
+            assertThat(chrooted.getData(relPath, false, st)).isEqualTo("x".getBytes(UTF_8));
+            assertThat(st.getVersion()).isEqualTo(0);
+
+            // From the base client's perspective, the absolute path is chrootBase + relPath
+            assertThat(client.exists(chrootBase + relPath, false)).isNotNull();
+            assertThat(client.getData(chrootBase + relPath, false, null)).isEqualTo("x".getBytes(UTF_8));
+
+            // The chrooted root ('/') only exposes children within the chroot namespace
+            List<String> rootChildren = chrooted.getChildren("/", false);
+            assertThat(rootChildren).contains("n1");
+            assertThat(rootChildren).doesNotContain(chrootBase.substring(1)); // server-global name is hidden
+        }
+
+        // Cleanup
+        client.delete(chrootBase + "/n1", -1);
+        client.delete(chrootBase, -1);
+    }
+
     // ------------------------------ Helpers ------------------------------
 
     private static ZooKeeper connect(String connectString, int sessionTimeoutMs) throws IOException, InterruptedException {
