@@ -23,3 +23,14 @@ dependencies {
     // Add snappy-java at runtime to avoid CNFE during server startup.
     testRuntimeOnly 'org.xerial.snappy:snappy-java:1.1.10.5'
 }
+
+graalvmNative {
+    agent {
+        defaultMode = "conditional"
+        modes {
+            conditional {
+                userCodeFilterPath = "user-code-filter.json"
+            }
+        }
+    }
+}
