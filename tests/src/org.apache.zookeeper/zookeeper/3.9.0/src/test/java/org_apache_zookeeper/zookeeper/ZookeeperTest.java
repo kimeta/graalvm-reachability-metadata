@@ -7,6 +7,7 @@
 package org_apache_zookeeper.zookeeper;
 
 import org.apache.zookeeper.AddWatchMode;
+import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Op;
@@ -38,6 +39,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.zookeeper.Watcher.Event.EventType.NodeCreated;
@@ -287,6 +290,85 @@ class ZookeeperTest {
         // Cleanup
         client.delete(chrootBase + "/n1", -1);
         client.delete(chrootBase, -1);
+    }
+
+    @Test
+    void asyncApiSupportsCallbacksAndOneTimeWatches() throws Exception {
+        String path = "/it-async-" + UUID.randomUUID();
+
+        // Create node asynchronously and verify callback results and context
+        AtomicReference<String> createdPathRef = new AtomicReference<>();
+        AtomicInteger createRc = new AtomicInteger(Integer.MIN_VALUE);
+        AtomicReference<Object> createCtxRef = new AtomicReference<>();
+        CountDownLatch createLatch = new CountDownLatch(1);
+
+        Object createCtx = "create-ctx";
+        AsyncCallback.StringCallback createCb = (rc, p, ctx, name) -> {
+            createRc.set(rc);
+            createdPathRef.set(name);
+            createCtxRef.set(ctx);
+            createLatch.countDown();
+        };
+        client.create(path, "v0".getBytes(UTF_8), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, createCb, createCtx);
+        assertThat(createLatch.await(10, TimeUnit.SECONDS)).isTrue();
+        assertThat(createRc.get()).isEqualTo(KeeperException.Code.OK.intValue());
+        assertThat(createdPathRef.get()).isEqualTo(path);
+        assertThat(createCtxRef.get()).isEqualTo(createCtx);
+
+        // Establish a one-time data watch using getData with a Watcher
+        BlockingQueue<WatchedEvent> events = new LinkedBlockingQueue<>();
+        Stat st = new Stat();
+        assertThat(client.getData(path, events::add, st)).isEqualTo("v0".getBytes(UTF_8));
+        int prevVersion = st.getVersion();
+        assertThat(prevVersion).isEqualTo(0);
+
+        // Update data asynchronously and verify StatCallback + one-time watch notification
+        AtomicInteger setRc = new AtomicInteger(Integer.MIN_VALUE);
+        AtomicReference<Stat> setStatRef = new AtomicReference<>();
+        AtomicReference<Object> setCtxRef = new AtomicReference<>();
+        CountDownLatch setLatch = new CountDownLatch(1);
+        Object setCtx = "set-ctx";
+        AsyncCallback.StatCallback setCb = (rc, p, ctx, stat) -> {
+            setRc.set(rc);
+            setStatRef.set(stat);
+            setCtxRef.set(ctx);
+            setLatch.countDown();
+        };
+        client.setData(path, "v1".getBytes(UTF_8), prevVersion, setCb, setCtx);
+        assertThat(setLatch.await(10, TimeUnit.SECONDS)).isTrue();
+        assertThat(setRc.get()).isEqualTo(KeeperException.Code.OK.intValue());
+        assertThat(setStatRef.get()).isNotNull();
+        assertThat(setStatRef.get().getVersion()).isEqualTo(prevVersion + 1);
+        assertThat(setCtxRef.get()).isEqualTo(setCtx);
+
+        // One-time watch should fire exactly once on data change
+        WatchedEvent first = events.poll(10, TimeUnit.SECONDS);
+        assertThat(first).isNotNull();
+        assertThat(first.getPath()).isEqualTo(path);
+        assertThat(first.getType()).isEqualTo(Watcher.Event.EventType.NodeDataChanged);
+
+        // Further updates should not trigger additional events (watch was one-time)
+        CountDownLatch setLatch2 = new CountDownLatch(1);
+        client.setData(path, "v2".getBytes(UTF_8), -1, (rc, p, ctx, stat) -> setLatch2.countDown(), null);
+        assertThat(setLatch2.await(10, TimeUnit.SECONDS)).isTrue();
+        WatchedEvent shouldBeNull = events.poll(1, TimeUnit.SECONDS);
+        assertThat(shouldBeNull).as("one-time watch should not fire again").isNull();
+
+        // Delete asynchronously and verify callback/cleanup
+        AtomicInteger delRc = new AtomicInteger(Integer.MIN_VALUE);
+        AtomicReference<Object> delCtxRef = new AtomicReference<>();
+        CountDownLatch delLatch = new CountDownLatch(1);
+        Object delCtx = "delete-ctx";
+        AsyncCallback.VoidCallback delCb = (rc, p, ctx) -> {
+            delRc.set(rc);
+            delCtxRef.set(ctx);
+            delLatch.countDown();
+        };
+        client.delete(path, -1, delCb, delCtx);
+        assertThat(delLatch.await(10, TimeUnit.SECONDS)).isTrue();
+        assertThat(delRc.get()).isEqualTo(KeeperException.Code.OK.intValue());
+        assertThat(delCtxRef.get()).isEqualTo(delCtx);
+        assertThat(client.exists(path, false)).isNull();
     }
 
     // ------------------------------ Helpers ------------------------------
