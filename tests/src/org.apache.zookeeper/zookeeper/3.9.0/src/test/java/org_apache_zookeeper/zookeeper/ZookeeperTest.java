@@ -32,8 +32,10 @@ import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -369,6 +371,50 @@ class ZookeeperTest {
         assertThat(delRc.get()).isEqualTo(KeeperException.Code.OK.intValue());
         assertThat(delCtxRef.get()).isEqualTo(delCtx);
         assertThat(client.exists(path, false)).isNull();
+    }
+
+    @Test
+    void sequentialNodesAreCreatedWithMonotonicSuffixes() throws Exception {
+        String parent = "/it-seq-" + UUID.randomUUID();
+        client.create(parent, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+
+        String prefix = parent + "/n-";
+        List<String> created = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            String p = client.create(prefix, ("v" + i).getBytes(UTF_8), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+            created.add(p);
+        }
+
+        // Ensure unique full paths
+        Set<String> uniques = new HashSet<>(created);
+        assertThat(uniques).hasSize(created.size());
+
+        // Validate 10-digit zero-padded suffixes are strictly increasing
+        List<Long> seqs = new ArrayList<>();
+        for (String p : created) {
+            assertThat(p).startsWith(prefix);
+            String suffix = p.substring(prefix.length());
+            assertThat(suffix).hasSize(10);
+            long num = Long.parseLong(suffix);
+            seqs.add(num);
+        }
+        for (int i = 1; i < seqs.size(); i++) {
+            assertThat(seqs.get(i)).isGreaterThan(seqs.get(i - 1));
+        }
+
+        // Children listing must contain the created sequential nodes (names only)
+        List<String> children = client.getChildren(parent, false);
+        List<String> createdNames = new ArrayList<>();
+        for (String p : created) {
+            createdNames.add(p.substring(p.lastIndexOf('/') + 1));
+        }
+        assertThat(children).containsAll(createdNames);
+
+        // Cleanup
+        for (String p : created) {
+            client.delete(p, -1);
+        }
+        client.delete(parent, -1);
     }
 
     // ------------------------------ Helpers ------------------------------
