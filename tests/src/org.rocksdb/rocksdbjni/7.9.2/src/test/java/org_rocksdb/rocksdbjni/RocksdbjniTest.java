@@ -9,27 +9,13 @@ package org_rocksdb.rocksdbjni;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
-import org.rocksdb.DBOptions;
-import org.rocksdb.Options;
-import org.rocksdb.ReadOptions;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
-import org.rocksdb.Snapshot;
-import org.rocksdb.WriteBatch;
-import org.rocksdb.WriteOptions;
+import org.rocksdb.*;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,35 +26,47 @@ class RocksdbjniTest {
         RocksDB.loadLibrary();
     }
 
-    @TempDir
-    Path tempDir;
-
     @Test
-    void basicPutGetDelete() throws Exception {
-        Path dbPath = newDbDir("basicPutGetDelete");
-        try (Options options = new Options().setCreateIfMissing(true);
-             RocksDB db = RocksDB.open(options, dbPath.toString())) {
+    void basicPutGetDeleteAndPersistence(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("basic-db");
 
-            byte[] key = b("hello");
-            byte[] value = b("world");
+        try (Options options = new Options().setCreateIfMissing(true)) {
+            // Create/open and perform basic CRUD
+            try (RocksDB db = RocksDB.open(options, dbPath.toString())) {
+                assertThat(db.get(b("missing"))).isNull();
 
-            db.put(key, value);
-            assertThat(db.get(key)).isEqualTo(value);
+                db.put(b("k1"), b("v1"));
+                assertThat(s(db.get(b("k1")))).isEqualTo("v1");
 
-            db.delete(key);
-            assertThat(db.get(key)).isNull();
+                db.delete(b("k1"));
+                assertThat(db.get(b("k1"))).isNull();
+            }
+
+            // Reopen and ensure state persisted (key k1 remains deleted)
+            try (RocksDB db = RocksDB.open(options, dbPath.toString())) {
+                assertThat(db.get(b("k1"))).isNull();
+
+                db.put(b("k2"), b("v2"));
+            }
+
+            // Reopen and verify k2 is present
+            try (RocksDB db = RocksDB.open(options, dbPath.toString())) {
+                assertThat(s(db.get(b("k2")))).isEqualTo("v2");
+            }
         }
     }
 
     @Test
-    void iteratorTraversesInKeyOrder() throws Exception {
-        Path dbPath = newDbDir("iteratorTraversesInKeyOrder");
+    void iteratorOrderingAndSeek(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("iter-db");
+
         try (Options options = new Options().setCreateIfMissing(true);
              RocksDB db = RocksDB.open(options, dbPath.toString())) {
 
             db.put(b("a"), b("1"));
-            db.put(b("c"), b("3"));
-            db.put(b("b"), b("2"));
+            db.put(b("aa"), b("2"));
+            db.put(b("b"), b("3"));
+            db.put(b("c"), b("4"));
 
             List<String> keys = new ArrayList<>();
             List<String> values = new ArrayList<>();
@@ -81,96 +79,42 @@ class RocksdbjniTest {
                 }
             }
 
-            assertThat(keys).containsExactly("a", "b", "c");
-            assertThat(values).containsExactly("1", "2", "3");
-        }
-    }
+            assertThat(keys).containsExactly("a", "aa", "b", "c");
+            assertThat(values).containsExactly("1", "2", "3", "4");
 
-    @Test
-    void writeBatchIsAtomic() throws Exception {
-        Path dbPath = newDbDir("writeBatchIsAtomic");
-        try (Options options = new Options().setCreateIfMissing(true);
-             RocksDB db = RocksDB.open(options, dbPath.toString())) {
-
-            byte[] k1 = b("k1");
-            byte[] k2 = b("k2");
-
-            try (WriteOptions writeOptions = new WriteOptions();
-                 WriteBatch batch = new WriteBatch()) {
-                batch.put(k1, b("v1"));
-                batch.put(k2, b("v2"));
-                batch.delete(k1);
-
-                db.write(writeOptions, batch);
-            }
-
-            assertThat(db.get(k1)).isNull();
-            assertThat(db.get(k2)).isEqualTo(b("v2"));
-        }
-    }
-
-    @Test
-    void columnFamiliesMaintainIsolation() throws Exception {
-        Path dbPath = newDbDir("columnFamiliesMaintainIsolation");
-
-        try (DBOptions dbOptions = new DBOptions()
-                .setCreateIfMissing(true)
-                .setCreateMissingColumnFamilies(true)) {
-
-            ColumnFamilyOptions defaultCfOpts = new ColumnFamilyOptions();
-            ColumnFamilyOptions cf1Opts = new ColumnFamilyOptions();
-            List<ColumnFamilyDescriptor> cfDescriptors = Arrays.asList(
-                    new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defaultCfOpts),
-                    new ColumnFamilyDescriptor(b("cf1"), cf1Opts)
-            );
-
-            List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-            RocksDB db = RocksDB.open(dbOptions, dbPath.toString(), cfDescriptors, cfHandles);
-
-            try (db; defaultCfOpts; cf1Opts) {
-                ColumnFamilyHandle defaultHandle = cfHandles.get(0);
-                ColumnFamilyHandle cf1Handle = cfHandles.get(1);
-
-                // Put in different CFs
-                db.put(defaultHandle, b("key"), b("default"));
-                db.put(cf1Handle, b("key"), b("cf1"));
-
-                // Verify isolation
-                assertThat(db.get(defaultHandle, b("key"))).isEqualTo(b("default"));
-                assertThat(db.get(cf1Handle, b("key"))).isEqualTo(b("cf1"));
-
-                // Same key in different CFs should not collide
-                assertThat(db.get(defaultHandle, b("missing"))).isNull();
-                assertThat(db.get(cf1Handle, b("missing"))).isNull();
-
-                // Close handles explicitly
-                for (ColumnFamilyHandle handle : cfHandles) {
-                    handle.close();
+            // Seek to a specific key
+            List<String> seeked = new ArrayList<>();
+            try (RocksIterator it = db.newIterator()) {
+                it.seek(b("b"));
+                while (it.isValid()) {
+                    seeked.add(s(it.key()));
+                    it.next();
                 }
             }
+            assertThat(seeked).containsExactly("b", "c");
         }
     }
 
     @Test
-    void snapshotProvidesPointInTimeView() throws Exception {
-        Path dbPath = newDbDir("snapshotProvidesPointInTimeView");
+    void snapshotIsolation(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("snapshot-db");
+
         try (Options options = new Options().setCreateIfMissing(true);
              RocksDB db = RocksDB.open(options, dbPath.toString())) {
 
-            byte[] key = b("snap-key");
-            db.put(key, b("v1"));
+            db.put(b("k"), b("v1"));
 
             Snapshot snapshot = db.getSnapshot();
             try (ReadOptions ro = new ReadOptions().setSnapshot(snapshot)) {
-
                 // Modify after snapshot
-                db.put(key, b("v2"));
+                db.put(b("k"), b("v2"));
+                db.put(b("k2"), b("x"));
 
-                // Snapshot should still see old value
-                assertThat(db.get(ro, key)).isEqualTo(b("v1"));
-
-                // Without snapshot we see the latest
-                assertThat(db.get(key)).isEqualTo(b("v2"));
+                // Snapshot view should see old value
+                assertThat(s(db.get(ro, b("k")))).isEqualTo("v1");
+                // Default view should see new value
+                assertThat(s(db.get(b("k")))).isEqualTo("v2");
+                assertThat(s(db.get(b("k2")))).isEqualTo("x");
             } finally {
                 db.releaseSnapshot(snapshot);
             }
@@ -178,87 +122,222 @@ class RocksdbjniTest {
     }
 
     @Test
-    void multiGetRetrievesMultipleKeys() throws Exception {
-        Path dbPath = newDbDir("multiGetRetrievesMultipleKeys");
+    void writeBatchAtomicityAndMultiGet(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("batch-db");
+
+        try (Options options = new Options().setCreateIfMissing(true);
+             RocksDB db = RocksDB.open(options, dbPath.toString());
+             WriteOptions wo = new WriteOptions()) {
+
+            db.put(b("a"), b("1"));
+            db.put(b("b"), b("1"));
+            db.put(b("c"), b("1"));
+
+            try (WriteBatch batch = new WriteBatch()) {
+                batch.delete(b("a"));
+                batch.put(b("b"), b("2"));
+                batch.put(b("d"), b("9"));
+                db.write(wo, batch);
+            }
+
+            assertThat(db.get(b("a"))).isNull();
+            assertThat(s(db.get(b("b")))).isEqualTo("2");
+            assertThat(s(db.get(b("c")))).isEqualTo("1");
+            assertThat(s(db.get(b("d")))).isEqualTo("9");
+
+            // Validate using multiGetAsList to ensure order is preserved
+            List<byte[]> keys = Arrays.asList(b("a"), b("b"), b("c"), b("d"), b("zzz"));
+            List<byte[]> values = db.multiGetAsList(keys);
+            assertThat(values.get(0)).isNull();
+            assertThat(s(values.get(1))).isEqualTo("2");
+            assertThat(s(values.get(2))).isEqualTo("1");
+            assertThat(s(values.get(3))).isEqualTo("9");
+            assertThat(values.get(4)).isNull();
+        }
+    }
+
+    @Test
+    void columnFamiliesIsolationAndPersistence(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("cf-db");
+
+        ColumnFamilyOptions defaultCfOpts = new ColumnFamilyOptions();
+        ColumnFamilyOptions cf1Opts = new ColumnFamilyOptions();
+        ColumnFamilyOptions cf2Opts = new ColumnFamilyOptions();
+
+        List<ColumnFamilyDescriptor> cfDescs = Arrays.asList(
+                new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defaultCfOpts),
+                new ColumnFamilyDescriptor(b("cf1"), cf1Opts),
+                new ColumnFamilyDescriptor(b("cf2"), cf2Opts)
+        );
+
+        List<ColumnFamilyHandle> handles = new ArrayList<>();
+        try (DBOptions dbOptions = new DBOptions()
+                .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true);
+             RocksDB db = RocksDB.open(dbOptions, dbPath.toString(), cfDescs, handles)) {
+
+            // After opening, options objects are no longer needed; close them to free native resources
+            defaultCfOpts.close();
+            cf1Opts.close();
+            cf2Opts.close();
+
+            assertThat(handles).hasSize(3);
+
+            ColumnFamilyHandle defaultHandle = handles.get(0);
+            ColumnFamilyHandle cf1Handle = handles.get(1);
+            ColumnFamilyHandle cf2Handle = handles.get(2);
+
+            // Put values into different CFs
+            db.put(defaultHandle, b("k"), b("v-default"));
+            db.put(cf1Handle, b("k"), b("v-cf1"));
+            db.put(cf2Handle, b("k2"), b("v-cf2"));
+
+            // Ensure isolation between CFs
+            assertThat(s(db.get(defaultHandle, b("k")))).isEqualTo("v-default");
+            assertThat(s(db.get(cf1Handle, b("k")))).isEqualTo("v-cf1");
+            assertThat(db.get(cf1Handle, b("k2"))).isNull();
+            assertThat(db.get(cf2Handle, b("k"))).isNull();
+            assertThat(s(db.get(cf2Handle, b("k2")))).isEqualTo("v-cf2");
+
+            // Close and reopen to verify persistence
+            for (ColumnFamilyHandle h : handles) {
+                h.close();
+            }
+        }
+
+        // Reopen with the same CF descriptors
+        List<ColumnFamilyHandle> reopenedHandles = new ArrayList<>();
+        // Need fresh CFOptions when reopening
+        ColumnFamilyOptions defaultCfOpts2 = new ColumnFamilyOptions();
+        ColumnFamilyOptions cf1Opts2 = new ColumnFamilyOptions();
+        ColumnFamilyOptions cf2Opts2 = new ColumnFamilyOptions();
+        List<ColumnFamilyDescriptor> reopenDescs = Arrays.asList(
+                new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defaultCfOpts2),
+                new ColumnFamilyDescriptor(b("cf1"), cf1Opts2),
+                new ColumnFamilyDescriptor(b("cf2"), cf2Opts2)
+        );
+
+        try (DBOptions dbOptions = new DBOptions()
+                .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true);
+             RocksDB db = RocksDB.open(dbOptions, dbPath.toString(), reopenDescs, reopenedHandles)) {
+
+            // Close the CF options as they are no longer needed after opening
+            defaultCfOpts2.close();
+            cf1Opts2.close();
+            cf2Opts2.close();
+
+            ColumnFamilyHandle defaultHandle = reopenedHandles.get(0);
+            ColumnFamilyHandle cf1Handle = reopenedHandles.get(1);
+            ColumnFamilyHandle cf2Handle = reopenedHandles.get(2);
+
+            assertThat(s(db.get(defaultHandle, b("k")))).isEqualTo("v-default");
+            assertThat(s(db.get(cf1Handle, b("k")))).isEqualTo("v-cf1");
+            assertThat(s(db.get(cf2Handle, b("k2")))).isEqualTo("v-cf2");
+
+            for (ColumnFamilyHandle h : reopenedHandles) {
+                h.close();
+            }
+        }
+    }
+
+    @Test
+    void compactRangeKeepsDataCorrect(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("compact-db");
+
         try (Options options = new Options().setCreateIfMissing(true);
              RocksDB db = RocksDB.open(options, dbPath.toString())) {
+
+            // Insert a range of keys
+            for (int i = 0; i < 200; i++) {
+                db.put(b(String.format("k%03d", i)), b("v" + i));
+            }
+            // Delete some to create tombstones
+            for (int i = 50; i < 100; i++) {
+                db.delete(b(String.format("k%03d", i)));
+            }
+
+            // Compact the entire key range
+            db.compactRange();
+
+            // Verify keys before 50 exist, [50,99] deleted, [100,199] exist
+            for (int i = 0; i < 50; i++) {
+                assertThat(db.get(b(String.format("k%03d", i)))).isNotNull();
+            }
+            for (int i = 50; i < 100; i++) {
+                assertThat(db.get(b(String.format("k%03d", i)))).isNull();
+            }
+            for (int i = 100; i < 200; i++) {
+                assertThat(db.get(b(String.format("k%03d", i)))).isNotNull();
+            }
+        }
+    }
+
+    @Test
+    void checkpointCreatesConsistentSnapshot(@TempDir Path tmp) throws Exception {
+        Path srcDbPath = tmp.resolve("src-db");
+        Path checkpointPath = tmp.resolve("checkpoint-db");
+
+        // Create source DB and populate some data
+        try (Options options = new Options().setCreateIfMissing(true);
+             RocksDB db = RocksDB.open(options, srcDbPath.toString())) {
 
             db.put(b("k1"), b("v1"));
             db.put(b("k2"), b("v2"));
-            // Intentionally leaving k3 missing
-            db.put(b("k4"), b("v4"));
 
-            List<byte[]> keys = Arrays.asList(b("k1"), b("k2"), b("k3"), b("k4"));
-            List<byte[]> values = db.multiGetAsList(keys);
-
-            assertThat(values).hasSize(4);
-            assertThat(values.get(0)).isEqualTo(b("v1"));
-            assertThat(values.get(1)).isEqualTo(b("v2"));
-            assertThat(values.get(2)).isNull(); // k3 missing
-            assertThat(values.get(3)).isEqualTo(b("v4"));
-        }
-    }
-
-    @Test
-    void deleteRangeRemovesKeysInHalfOpenInterval() throws Exception {
-        Path dbPath = newDbDir("deleteRangeRemovesKeysInHalfOpenInterval");
-        try (Options options = new Options().setCreateIfMissing(true);
-             RocksDB db = RocksDB.open(options, dbPath.toString())) {
-
-            db.put(b("a"), b("1"));
-            db.put(b("b"), b("2"));
-            db.put(b("c"), b("3"));
-            db.put(b("d"), b("4"));
-
-            // Delete keys in [b, d)
-            db.deleteRange(b("b"), b("d"));
-
-            assertThat(db.get(b("a"))).isEqualTo(b("1"));
-            assertThat(db.get(b("b"))).isNull();
-            assertThat(db.get(b("c"))).isNull();
-            assertThat(db.get(b("d"))).isEqualTo(b("4"));
-        }
-    }
-
-    @Test
-    void iteratorRespectsBoundsInReadOptions() throws Exception {
-        Path dbPath = newDbDir("iteratorRespectsBoundsInReadOptions");
-        try (Options options = new Options().setCreateIfMissing(true);
-             RocksDB db = RocksDB.open(options, dbPath.toString())) {
-
-            db.put(b("a"), b("1"));
-            db.put(b("b"), b("2"));
-            db.put(b("c"), b("3"));
-            db.put(b("d"), b("4"));
-
-            List<String> keys = new ArrayList<>();
-            try (Slice lower = new Slice(b("b"));
-                 Slice upper = new Slice(b("d"));
-                 ReadOptions ro = new ReadOptions()) {
-                ro.setIterateLowerBound(lower);
-                ro.setIterateUpperBound(upper);
-
-                try (RocksIterator it = db.newIterator(ro)) {
-                    // Start at the lower bound
-                    it.seek(b("b"));
-                    while (it.isValid()) {
-                        keys.add(s(it.key()));
-                        it.next();
-                    }
-                }
+            // Create a checkpoint capturing current state
+            try (Checkpoint checkpoint = Checkpoint.create(db)) {
+                checkpoint.createCheckpoint(checkpointPath.toString());
             }
 
-            // Expect keys in [b, d) => b and c
-            assertThat(keys).containsExactly("b", "c");
+            // Mutate the source DB after checkpoint
+            db.put(b("k3"), b("v3"));
+            db.delete(b("k1"));
+        }
+
+        // Open the checkpoint as a standalone DB and verify it reflects the state at checkpoint time
+        try (Options options = new Options().setCreateIfMissing(false);
+             RocksDB cpDb = RocksDB.open(options, checkpointPath.toString())) {
+
+            assertThat(s(cpDb.get(b("k1")))).isEqualTo("v1"); // existed at checkpoint
+            assertThat(s(cpDb.get(b("k2")))).isEqualTo("v2"); // existed at checkpoint
+            assertThat(cpDb.get(b("k3"))).isNull();           // written after checkpoint
         }
     }
 
-    // Helpers
+    @Test
+    void deleteRangeDeletesHalfOpenIntervalAndAllowsSubsequentWrites(@TempDir Path tmp) throws Exception {
+        Path dbPath = tmp.resolve("range-del-db");
 
-    private Path newDbDir(String name) throws IOException {
-        Path dir = tempDir.resolve(name + "-" + UUID.randomUUID());
-        Files.createDirectories(dir);
-        return dir;
+        try (Options options = new Options().setCreateIfMissing(true);
+             RocksDB db = RocksDB.open(options, dbPath.toString())) {
+
+            // Insert k01..k10
+            for (int i = 1; i <= 10; i++) {
+                db.put(b(String.format("k%02d", i)), b("v" + i));
+            }
+
+            // Delete range [k03, k07) -> removes k03..k06
+            db.deleteRange(b("k03"), b("k07"));
+
+            // Outside the range are still present
+            assertThat(db.get(b("k01"))).isNotNull();
+            assertThat(db.get(b("k02"))).isNotNull();
+            assertThat(db.get(b("k07"))).isNotNull();
+            assertThat(db.get(b("k08"))).isNotNull();
+            assertThat(db.get(b("k09"))).isNotNull();
+            assertThat(db.get(b("k10"))).isNotNull();
+
+            // Inside the half-open range are deleted
+            assertThat(db.get(b("k03"))).isNull();
+            assertThat(db.get(b("k04"))).isNull();
+            assertThat(db.get(b("k05"))).isNull();
+            assertThat(db.get(b("k06"))).isNull();
+
+            // Subsequent put inside the deleted range should be visible (tombstone does not mask new writes)
+            db.put(b("k05"), b("after"));
+            assertThat(s(db.get(b("k05")))).isEqualTo("after");
+        }
     }
 
     private static byte[] b(String s) {
@@ -266,6 +345,6 @@ class RocksdbjniTest {
     }
 
     private static String s(byte[] b) {
-        return new String(b, StandardCharsets.UTF_8);
+        return b == null ? null : new String(b, StandardCharsets.UTF_8);
     }
 }
