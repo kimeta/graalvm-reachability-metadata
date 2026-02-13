@@ -13,4 +13,8 @@ String libraryVersion = tck.testedLibraryVersion.get()
 dependencies {
     testImplementation "org.hibernate.orm:hibernate-jcache:$libraryVersion"
     testImplementation 'org.assertj:assertj-core:3.22.0'
+
+    // Required for integration: JCache provider and in-memory database
+    testImplementation 'org.ehcache:ehcache:3.10.8'
+    testImplementation 'com.h2database:h2:2.2.224'
 }
