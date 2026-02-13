@@ -88,7 +88,7 @@ class Hibernate_jcacheTest {
 
         // First load: should hit DB and populate L2 cache (put)
         try (Session s = sessionFactory.openSession()) {
-            Item loaded = s.get(Item.class, id);
+            Item loaded = s.find(Item.class, id);
             Assertions.assertThat(loaded).isNotNull();
             Assertions.assertThat(loaded.getName()).isEqualTo("cached-item");
         }
@@ -98,7 +98,7 @@ class Hibernate_jcacheTest {
 
         // Second load in a new Session: should be served from L2 (hit)
         try (Session s = sessionFactory.openSession()) {
-            Item loaded = s.get(Item.class, id);
+            Item loaded = s.find(Item.class, id);
             Assertions.assertThat(loaded).isNotNull();
             Assertions.assertThat(loaded.getName()).isEqualTo("cached-item");
         }
@@ -183,10 +183,18 @@ class Hibernate_jcacheTest {
             id = item.getId();
         }
 
-        // Warm up L2 cache
+        // Warm up L2 cache (first load -> L2 put)
         try (Session s = sessionFactory.openSession()) {
-            s.get(Item.class, id);
+            Item firstLoad = s.find(Item.class, id);
+            Assertions.assertThat(firstLoad).isNotNull();
         }
+
+        // Trigger an L2 cache hit (second load in a new Session)
+        try (Session s = sessionFactory.openSession()) {
+            Item secondLoad = s.find(Item.class, id);
+            Assertions.assertThat(secondLoad).isNotNull();
+        }
+
         long hitsBeforeEvict = stats.getSecondLevelCacheHitCount();
 
         // Evict all Item entities from L2 cache
@@ -196,7 +204,7 @@ class Hibernate_jcacheTest {
 
         // Next load should miss L2 and repopulate
         try (Session s = sessionFactory.openSession()) {
-            Item reloaded = s.get(Item.class, id);
+            Item reloaded = s.find(Item.class, id);
             Assertions.assertThat(reloaded).isNotNull();
             Assertions.assertThat(reloaded.getName()).isEqualTo("evict-me");
         }
