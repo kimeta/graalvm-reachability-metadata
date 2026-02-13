@@ -42,9 +42,15 @@ class Hibernate_jcacheTest {
                 .applySetting("hibernate.connection.url", "jdbc:h2:mem:hjcache;DB_CLOSE_DELAY=-1;MODE=LEGACY")
                 .applySetting("hibernate.connection.username", "sa")
                 .applySetting("hibernate.connection.password", "")
+                // JCache / caching
                 .applySetting("hibernate.cache.use_second_level_cache", "true")
                 .applySetting("hibernate.cache.use_query_cache", "true")
                 .applySetting("hibernate.cache.region.factory_class", "org.hibernate.cache.jcache.JCacheRegionFactory")
+                // Auto-create missing JCache regions (entity, natural-id, query)
+                .applySetting("hibernate.cache.jcache.missing_cache_strategy", "create")
+                // Make the provider explicit to avoid provider discovery ambiguity
+                .applySetting("hibernate.javax.cache.provider", "org.ehcache.jsr107.EhcacheCachingProvider")
+                // Stats for assertions
                 .applySetting("hibernate.generate_statistics", "true")
                 .build();
 

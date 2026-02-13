@@ -18,3 +18,13 @@ dependencies {
     testImplementation 'org.ehcache:ehcache:3.10.8'
     testImplementation 'com.h2database:h2:2.2.224'
 }
+
+// Disable reachability metadata repository for nativeTest to avoid
+// failures when the local metadata repository isn't present.
+if (extensions.findByName('graalvmNative')) {
+    graalvmNative {
+        metadataRepository {
+            enabled = false
+        }
+    }
+}
