@@ -219,6 +219,66 @@ class Hibernate_jcacheTest {
                 .isGreaterThanOrEqualTo(1L);
     }
 
+    @Test
+    void queryCache_isInvalidatedOnEntityMutation() {
+        Statistics stats = sessionFactory.getStatistics();
+        stats.clear();
+
+        // Seed initial matching data
+        try (Session s = sessionFactory.openSession()) {
+            Transaction tx = s.beginTransaction();
+            for (int i = 0; i < 2; i++) {
+                Item item = new Item();
+                item.setName("gamma-" + i);
+                s.persist(item);
+            }
+            tx.commit();
+        }
+
+        // Populate the query cache for the specific query + parameters
+        try (Session s = sessionFactory.openSession()) {
+            s.createQuery("select i from Item i where i.name like :p", Item.class)
+                    .setParameter("p", "gamma-%")
+                    .setCacheable(true)
+                    .list();
+        }
+
+        long putsBeforeMutation = stats.getQueryCachePutCount();
+        long missesBeforeMutation = stats.getQueryCacheMissCount();
+
+        // Mutate data that matches the cached query (insert a new matching row)
+        try (Session s = sessionFactory.openSession()) {
+            Transaction tx = s.beginTransaction();
+            Item item = new Item();
+            item.setName("gamma-2");
+            s.persist(item);
+            tx.commit();
+        }
+
+        // Re-execute the same cacheable query: cache should have been invalidated and repopulated
+        try (Session s = sessionFactory.openSession()) {
+            var results = s.createQuery("select i from Item i where i.name like :p", Item.class)
+                    .setParameter("p", "gamma-%")
+                    .setCacheable(true)
+                    .list();
+
+            Assertions.assertThat(results)
+                    .extracting(Item::getName)
+                    .allMatch(n -> n.startsWith("gamma-"));
+            Assertions.assertThat(results).hasSize(3);
+        }
+
+        long missesAfterMutation = stats.getQueryCacheMissCount();
+        long putsAfterMutation = stats.getQueryCachePutCount();
+
+        Assertions.assertThat(missesAfterMutation - missesBeforeMutation)
+                .as("After mutating matching data, subsequent execution should miss the query cache")
+                .isGreaterThanOrEqualTo(1L);
+        Assertions.assertThat(putsAfterMutation - putsBeforeMutation)
+                .as("Invalidated query results should be repopulated in the query cache")
+                .isGreaterThanOrEqualTo(1L);
+    }
+
     @Entity(name = "Item")
     @Table(name = "items")
     @Cacheable
