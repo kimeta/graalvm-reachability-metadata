@@ -279,6 +279,57 @@ class Hibernate_jcacheTest {
                 .isGreaterThanOrEqualTo(1L);
     }
 
+    @Test
+    void queryCache_isEvictedByApiCall_repopulatesOnNextExecution() {
+        Statistics stats = sessionFactory.getStatistics();
+        stats.clear();
+
+        // Seed data for the query
+        try (Session s = sessionFactory.openSession()) {
+            Transaction tx = s.beginTransaction();
+            for (int i = 0; i < 4; i++) {
+                Item item = new Item();
+                item.setName("delta-" + i);
+                s.persist(item);
+            }
+            tx.commit();
+        }
+
+        // Populate the query cache
+        try (Session s = sessionFactory.openSession()) {
+            var results = s.createQuery("select i from Item i where i.name like :p", Item.class)
+                    .setParameter("p", "delta-%")
+                    .setCacheable(true)
+                    .list();
+            Assertions.assertThat(results).hasSize(4);
+        }
+
+        long putsBeforeEvict = stats.getQueryCachePutCount();
+        long missesBeforeEvict = stats.getQueryCacheMissCount();
+
+        // Evict all query cache regions via the Cache API
+        sessionFactory.getCache().evictQueryRegions();
+
+        // Re-execute the same cacheable query: it should miss and be repopulated
+        try (Session s = sessionFactory.openSession()) {
+            var results = s.createQuery("select i from Item i where i.name like :p", Item.class)
+                    .setParameter("p", "delta-%")
+                    .setCacheable(true)
+                    .list();
+            Assertions.assertThat(results).hasSize(4);
+        }
+
+        long putsAfterEvict = stats.getQueryCachePutCount();
+        long missesAfterEvict = stats.getQueryCacheMissCount();
+
+        Assertions.assertThat(missesAfterEvict - missesBeforeEvict)
+                .as("After evicting query regions, the next execution should miss the query cache")
+                .isGreaterThanOrEqualTo(1L);
+        Assertions.assertThat(putsAfterEvict - putsBeforeEvict)
+                .as("Evicted query results should be repopulated on next execution")
+                .isGreaterThanOrEqualTo(1L);
+    }
+
     @Entity(name = "Item")
     @Table(name = "items")
     @Cacheable
