@@ -291,6 +291,44 @@ class XercesImplTest {
         assertThat(root.getTextContent()).isEqualTo("part1andpart2more");
     }
 
+    @Test
+    void domParsing_withSchema_defaultsAreAppliedDuringParse() throws Exception {
+        // When a Schema is set on the DocumentBuilderFactory, Xerces performs schema-aware parsing
+        // and augments the DOM with default attribute values defined in the schema.
+        String xsd =
+            "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" "
+                + "targetNamespace=\"urn:def\" xmlns=\"urn:def\" elementFormDefault=\"qualified\">"
+                + "  <xs:element name=\"item\">"
+                + "    <xs:complexType>"
+                + "      <xs:attribute name=\"category\" type=\"xs:string\" default=\"general\"/>"
+                + "      <xs:attribute name=\"flag\" type=\"xs:boolean\" use=\"required\"/>"
+                + "    </xs:complexType>"
+                + "  </xs:element>"
+                + "</xs:schema>";
+
+        String xml =
+            "<item xmlns=\"urn:def\" flag=\"true\"/>";
+
+        XMLSchemaFactory schemaFactory = new XMLSchemaFactory();
+        Schema schema = schemaFactory.newSchema(new StreamSource(new StringReader(xsd)));
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setNamespaceAware(true);
+        dbf.setSchema(schema);
+
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document doc = db.parse(input(xml));
+
+        Element root = doc.getDocumentElement();
+        assertThat(root.getLocalName()).isEqualTo("item");
+        assertThat(root.getNamespaceURI()).isEqualTo("urn:def");
+
+        // Default attribute from the schema should be present even though it wasn't in the instance
+        assertThat(root.getAttribute("category")).isEqualTo("general");
+        // Explicit attribute should also be preserved
+        assertThat(root.getAttribute("flag")).isEqualTo("true");
+    }
+
     private static InputSource input(String xml) {
         return new InputSource(new StringReader(xml));
     }
