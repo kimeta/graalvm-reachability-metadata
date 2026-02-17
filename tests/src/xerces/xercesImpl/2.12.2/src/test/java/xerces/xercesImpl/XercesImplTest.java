@@ -12,7 +12,9 @@ import org.apache.xerces.jaxp.validation.XMLSchemaFactory;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -260,6 +262,33 @@ class XercesImplTest {
         DocumentBuilder db = dbf.newDocumentBuilder();
         assertThatThrownBy(() -> db.parse(input(withDoctype)))
             .isInstanceOf(SAXException.class);
+    }
+
+    @Test
+    void domParsing_coalescingAndIgnoringComments_mergesTextAndOmitsComments() throws Exception {
+        // CDATA sections should be merged with adjacent text nodes when coalescing is enabled
+        // and comments should be omitted when ignoring comments is enabled.
+        String xml = "<r><!--c--><![CDATA[part1]]>and<![CDATA[part2]]><!--d-->more</r>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setCoalescing(true);
+        dbf.setIgnoringComments(true);
+
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document doc = db.parse(input(xml));
+
+        Element root = doc.getDocumentElement();
+        assertThat(root.getTagName()).isEqualTo("r");
+
+        // All character content should be merged into a single text node
+        NodeList children = root.getChildNodes();
+        assertThat(children.getLength()).isEqualTo(1);
+        Node only = children.item(0);
+        assertThat(only.getNodeType()).isEqualTo(Node.TEXT_NODE);
+        assertThat(((Text) only).getData()).isEqualTo("part1andpart2more");
+
+        // Text content should match the merged text as well
+        assertThat(root.getTextContent()).isEqualTo("part1andpart2more");
     }
 
     private static InputSource input(String xml) {
