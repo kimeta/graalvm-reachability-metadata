@@ -13,8 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.XMLConstants;
@@ -168,7 +170,8 @@ class XercesImplTest {
             "text:hi",
             "end:{urn:ex}a",
             "start:{urn:ex}b",
-            "attr:{urn:ex}attr=v",
+            // Unprefixed attribute is in no namespace
+            "attr:{}attr=v",
             "end:{urn:ex}b",
             "end:{urn:ex}r"
         );
@@ -195,6 +198,23 @@ class XercesImplTest {
         dbf.setNamespaceAware(false);
 
         DocumentBuilder db = dbf.newDocumentBuilder();
+        // Convert validation errors into exceptions so invalid XML fails the parse
+        db.setErrorHandler(new ErrorHandler() {
+            @Override
+            public void warning(SAXParseException exception) {
+                // ignore warnings
+            }
+
+            @Override
+            public void error(SAXParseException exception) throws SAXException {
+                throw exception;
+            }
+
+            @Override
+            public void fatalError(SAXParseException exception) throws SAXException {
+                throw exception;
+            }
+        });
 
         // Valid according to DTD
         db.parse(input(dtdOk));
