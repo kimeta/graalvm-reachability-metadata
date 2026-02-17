@@ -14,3 +14,14 @@ dependencies {
     testImplementation "xerces:xercesImpl:$libraryVersion"
     testImplementation 'org.assertj:assertj-core:3.22.0'
 }
+
+/**
+ * Disable reachability metadata repository lookup to avoid requiring a local
+ * metadata/index.json during nativeTest. This lets the tests run even when the
+ * repository is not present in the environment.
+ */
+graalvmNative {
+    metadataRepository {
+        enabled = false
+    }
+}
