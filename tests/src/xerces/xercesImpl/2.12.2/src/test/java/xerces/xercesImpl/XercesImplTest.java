@@ -6,13 +6,312 @@
  */
 package xerces.xercesImpl;
 
+import org.apache.xerces.jaxp.DocumentBuilderFactoryImpl;
+import org.apache.xerces.jaxp.SAXParserFactoryImpl;
+import org.apache.xerces.jaxp.validation.XMLSchemaFactory;
+import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.Attributes;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
 
-import static org.assertj.core.api.Assertions.fail;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.Validator;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class XercesImplTest {
+
     @Test
-    void test() throws Exception {
-        fail("TODO: Add test logic here");
+    void domParsing_withNamespaces_parsesElementsAndNamespacesCorrectly() throws Exception {
+        String xml = ""
+            + "<book xmlns=\"http://example.com/book\" "
+            + "      xmlns:dc=\"http://purl.org/dc/elements/1.1/\">"
+            + "  <title>Thinking in XML</title>"
+            + "  <dc:creator>Jane Doe</dc:creator>"
+            + "</book>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setNamespaceAware(true);
+
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+        Document doc = builder.parse(asInputSource(xml));
+
+        Element root = doc.getDocumentElement();
+        assertThat(root).isNotNull();
+        assertThat(root.getLocalName()).isEqualTo("book");
+        assertThat(root.getNamespaceURI()).isEqualTo("http://example.com/book");
+        assertThat(root.lookupNamespaceURI("dc")).isEqualTo("http://purl.org/dc/elements/1.1/");
+
+        Element title = (Element) root.getElementsByTagNameNS("http://example.com/book", "title").item(0);
+        assertThat(title).isNotNull();
+        assertThat(title.getTextContent()).isEqualTo("Thinking in XML");
+
+        Element creator = (Element) root.getElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "creator").item(0);
+        assertThat(creator).isNotNull();
+        assertThat(creator.getTextContent()).isEqualTo("Jane Doe");
+    }
+
+    @Test
+    void domParsing_malformedXml_throwsSAXParseExceptionWithLocation() throws Exception {
+        String malformed = "<root><unclosed></root>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setNamespaceAware(true);
+
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+
+        ThrowableAssert.ThrowingCallable parse = () -> builder.parse(asInputSource(malformed));
+        assertThatThrownBy(parse)
+            .isInstanceOf(SAXParseException.class)
+            .satisfies(ex -> {
+                SAXParseException spe = (SAXParseException) ex;
+                assertThat(spe.getLineNumber()).isGreaterThan(0);
+                assertThat(spe.getColumnNumber()).isGreaterThan(0);
+            });
+    }
+
+    @Test
+    void dtdValidation_reportsErrorsAndAllowsValidDocuments() throws Exception {
+        String validXml = ""
+            + "<!DOCTYPE note [\n"
+            + "  <!ELEMENT note (to,from,body)>\n"
+            + "  <!ELEMENT to (#PCDATA)>\n"
+            + "  <!ELEMENT from (#PCDATA)>\n"
+            + "  <!ELEMENT body (#PCDATA)>\n"
+            + "]>\n"
+            + "<note>"
+            + "  <to>Alice</to>"
+            + "  <from>Bob</from>"
+            + "  <body>Hello!</body>"
+            + "</note>";
+
+        String invalidXml = ""
+            + "<!DOCTYPE note [\n"
+            + "  <!ELEMENT note (to,from,body)>\n"
+            + "  <!ELEMENT to (#PCDATA)>\n"
+            + "  <!ELEMENT from (#PCDATA)>\n"
+            + "  <!ELEMENT body (#PCDATA)>\n"
+            + "]>\n"
+            + "<note>"
+            + "  <to>Alice</to>"
+            + "  <from>Bob</from>"
+            + "  <!-- Missing body element -->"
+            + "</note>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setValidating(true);
+        dbf.setNamespaceAware(false);
+
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+
+        // ErrorHandler that escalates any validation error to an exception
+        RecordingErrorHandler handler = new RecordingErrorHandler(true);
+        builder.setErrorHandler(handler);
+
+        // Valid document should parse without exceptions and without recorded errors
+        Document doc = builder.parse(asInputSource(validXml));
+        assertThat(doc.getDocumentElement().getNodeName()).isEqualTo("note");
+        assertThat(handler.errors).isEmpty();
+
+        // Invalid document should trigger a SAXParseException
+        RecordingErrorHandler handler2 = new RecordingErrorHandler(true);
+        builder.setErrorHandler(handler2);
+        assertThatThrownBy(() -> builder.parse(asInputSource(invalidXml)))
+            .isInstanceOf(SAXParseException.class);
+        assertThat(handler2.errors).isNotEmpty();
+    }
+
+    @Test
+    void xmlSchemaValidation_validatesUsingXercesSchemaFactory() throws Exception {
+        String xsd = ""
+            + "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" "
+            + "           targetNamespace=\"http://example.com/person\" "
+            + "           xmlns=\"http://example.com/person\" "
+            + "           elementFormDefault=\"qualified\">"
+            + "  <xs:element name=\"person\">"
+            + "    <xs:complexType>"
+            + "      <xs:sequence>"
+            + "        <xs:element name=\"name\" type=\"xs:string\"/>"
+            + "        <xs:element name=\"age\" type=\"xs:int\" minOccurs=\"0\"/>"
+            + "      </xs:sequence>"
+            + "      <xs:attribute name=\"id\" type=\"xs:ID\" use=\"required\"/>"
+            + "    </xs:complexType>"
+            + "  </xs:element>"
+            + "</xs:schema>";
+
+        String valid = ""
+            + "<person xmlns=\"http://example.com/person\" id=\"p1\">"
+            + "  <name>John</name>"
+            + "  <age>30</age>"
+            + "</person>";
+
+        String invalid = ""
+            + "<person xmlns=\"http://example.com/person\">"
+            + "  <name>John</name>"
+            + "  <age>thirty</age>" // invalid type and missing required @id
+            + "</person>";
+
+        XMLSchemaFactory schemaFactory = new XMLSchemaFactory();
+        // Secure processing is supported and recommended; enable it explicitly.
+        schemaFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+
+        Schema schema = schemaFactory.newSchema(new StreamSource(new StringReader(xsd), "memory:xsd"));
+        Validator validator = schema.newValidator();
+
+        // Valid XML should pass
+        validator.validate(new StreamSource(new StringReader(valid), "memory:valid.xml"));
+
+        // Invalid XML should fail with detailed diagnostics
+        assertThatThrownBy(() -> validator.validate(new StreamSource(new StringReader(invalid), "memory:invalid.xml")))
+            .isInstanceOf(SAXParseException.class)
+            .satisfies(ex -> {
+                SAXParseException spe = (SAXParseException) ex;
+                assertThat(spe.getLineNumber()).isGreaterThan(0);
+                assertThat(spe.getPublicId()).isNull(); // we used in-memory sources
+            });
+    }
+
+    @Test
+    void saxParsing_emitsExpectedEventsInOrder() throws Exception {
+        String xml = ""
+            + "<root>"
+            + "  <child id=\"1\">text</child>"
+            + "  <child id=\"2\"/>"
+            + "</root>";
+
+        SAXParserFactoryImpl spf = new SAXParserFactoryImpl();
+        spf.setNamespaceAware(true);
+
+        SAXParser parser = spf.newSAXParser();
+
+        EventRecordingHandler handler = new EventRecordingHandler();
+        parser.parse(asInputSource(xml), handler);
+
+        // Verify start/end element order and captured text
+        assertThat(handler.events)
+            .containsExactly(
+                "startElement:root",
+                "startElement:child[@id=1]",
+                "text:child[text='text']",
+                "endElement:child",
+                "startElement:child[@id=2]",
+                "endElement:child",
+                "endElement:root"
+            );
+    }
+
+    @Test
+    void features_disallowDoctypeDecl_blocksDoctypes() throws Exception {
+        String withDoctype = ""
+            + "<!DOCTYPE root [<!ELEMENT root (#PCDATA)>]>"
+            + "<root>content</root>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setNamespaceAware(true);
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+
+        assertThatThrownBy(() -> builder.parse(asInputSource(withDoctype)))
+            .isInstanceOf(SAXParseException.class);
+    }
+
+    private static InputSource asInputSource(String xml) {
+        InputSource is = new InputSource(new StringReader(xml));
+        is.setSystemId("memory:xml"); // helps provide a base systemId for diagnostics
+        return is;
+    }
+
+    private static final class RecordingErrorHandler implements ErrorHandler {
+        private final boolean throwOnError;
+        private final List<SAXParseException> warnings = new ArrayList<>();
+        private final List<SAXParseException> errors = new ArrayList<>();
+        private final List<SAXParseException> fatals = new ArrayList<>();
+
+        private RecordingErrorHandler(boolean throwOnError) {
+            this.throwOnError = throwOnError;
+        }
+
+        @Override
+        public void warning(SAXParseException exception) throws SAXException {
+            warnings.add(exception);
+        }
+
+        @Override
+        public void error(SAXParseException exception) throws SAXException {
+            errors.add(exception);
+            if (throwOnError) {
+                throw exception;
+            }
+        }
+
+        @Override
+        public void fatalError(SAXParseException exception) throws SAXException {
+            fatals.add(exception);
+            throw exception;
+        }
+    }
+
+    private static final class EventRecordingHandler extends DefaultHandler {
+        private final List<String> events = new ArrayList<>();
+        private String currentElement;
+        private StringBuilder text = new StringBuilder();
+        private String currentChildId;
+
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) {
+            flushText(); // flush any pending text for previous element
+            currentElement = localName != null && !localName.isEmpty() ? localName : qName;
+            String id = attributes.getValue("id");
+            currentChildId = id;
+            if (id != null) {
+                events.add("startElement:" + currentElement + "[@id=" + id + "]");
+            } else {
+                events.add("startElement:" + currentElement);
+            }
+        }
+
+        @Override
+        public void characters(char[] ch, int start, int length) {
+            text.append(ch, start, length);
+        }
+
+        @Override
+        public void endElement(String uri, String localName, String qName) {
+            String name = localName != null && !localName.isEmpty() ? localName : qName;
+            String content = text.toString().trim();
+            if (!content.isEmpty()) {
+                events.add("text:" + name + "[text='" + content + "']");
+            }
+            events.add("endElement:" + name);
+            text.setLength(0);
+            currentElement = null;
+            currentChildId = null;
+        }
+
+        private void flushText() {
+            if (currentElement != null) {
+                String content = text.toString().trim();
+                if (!content.isEmpty()) {
+                    events.add("text:" + currentElement + "[text='" + content + "']");
+                }
+                text.setLength(0);
+            }
+        }
     }
 }
