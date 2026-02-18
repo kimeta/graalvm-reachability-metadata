@@ -21,6 +21,9 @@ dependencies {
     // Narayana JTA implementation (com.arjuna.ats.jta.* helpers)
     testImplementation "org.jboss.narayana.jta:narayana-jta:$libraryVersion"
 
+    // JBoss Logging required by Narayana at runtime
+    testImplementation "org.jboss.logging:jboss-logging:3.5.3.Final"
+
     // JTA API (javax.transaction.*) under Jakarta EE 8 coordinates
     testImplementation "jakarta.transaction:jakarta.transaction-api:1.3.3"
 
