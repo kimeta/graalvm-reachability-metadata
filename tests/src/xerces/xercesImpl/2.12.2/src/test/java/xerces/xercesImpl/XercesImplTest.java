@@ -307,6 +307,7 @@ class XercesImplTest {
             assertThat(root.getAttribute("id")).isEqualTo("p1");
             TypeInfo idTi = root.getAttributeNode("id").getSchemaTypeInfo();
             assertThat(idTi).isNotNull();
+            assertThat(idTi).isNotNull();
             assertThat(idTi.getTypeNamespace()).isEqualTo(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             assertThat(idTi.getTypeName()).isEqualTo("ID");
 
@@ -479,16 +480,6 @@ class XercesImplTest {
         @Override
         public void endEntity(String name) {
             // not used
-        }
-
-        @Override
-        public void startDTD(String name, String publicId, String systemId, String baseURI) {
-            // This 4-arg method does not exist in LexicalHandler; keep class binary compatible.
-        }
-
-        @Override
-        public void endDTD(String name) {
-            // This method does not exist in LexicalHandler; keep class binary compatible.
         }
 
         @Override
