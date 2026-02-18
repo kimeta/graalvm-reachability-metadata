@@ -158,6 +158,78 @@ class JtaTest {
         assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
     }
 
+    @Test
+    void transactionEnlistTwoXAResources_twoPhaseCommit_invokesPrepareAndCommitOnBoth() throws Exception {
+        javax.transaction.UserTransaction ut = UserTransaction.userTransaction();
+        javax.transaction.TransactionManager tm = TransactionManager.transactionManager();
+
+        ut.begin();
+        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_ACTIVE);
+
+        Transaction tx = tm.getTransaction();
+        assertThat(tx).isNotNull();
+
+        RecordingXAResource r1 = new RecordingXAResource();
+        RecordingXAResource r2 = new RecordingXAResource();
+
+        assertThat(tx.enlistResource(r1)).isTrue();
+        assertThat(tx.enlistResource(r2)).isTrue();
+
+        ut.commit();
+
+        assertThat(r1.prepareCalled).isTrue();
+        assertThat(r2.prepareCalled).isTrue();
+
+        assertThat(r1.commitCalled).isTrue();
+        assertThat(r2.commitCalled).isTrue();
+
+        assertThat(r1.onePhaseCommit).isFalse();
+        assertThat(r2.onePhaseCommit).isFalse();
+
+        assertThat(r1.rollbackCalled).isFalse();
+        assertThat(r2.rollbackCalled).isFalse();
+
+        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
+    @Test
+    void setTransactionTimeout_whenExpired_causesRollbackAndSynchronizationRolledBack() throws Exception {
+        javax.transaction.UserTransaction ut = UserTransaction.userTransaction();
+        javax.transaction.TransactionManager tm = TransactionManager.transactionManager();
+
+        ut.setTransactionTimeout(1); // seconds; applies to the next transaction
+        ut.begin();
+
+        Transaction tx = tm.getTransaction();
+        assertThat(tx).isNotNull();
+
+        AtomicInteger beforeCalls = new AtomicInteger(0);
+        AtomicReference<Integer> afterStatus = new AtomicReference<>();
+
+        tx.registerSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                beforeCalls.incrementAndGet();
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                afterStatus.set(status);
+            }
+        });
+
+        // Ensure the transaction times out
+        Thread.sleep(1200);
+
+        assertThatThrownBy(ut::commit).isInstanceOf(RollbackException.class);
+
+        // For a rollback path, beforeCompletion should not be invoked
+        assertThat(beforeCalls.get()).isEqualTo(0);
+        assertThat(afterStatus.get()).isEqualTo(Status.STATUS_ROLLEDBACK);
+
+        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
     private static final class RecordingXAResource implements XAResource {
         volatile boolean startCalled = false;
         volatile boolean endCalled = false;
