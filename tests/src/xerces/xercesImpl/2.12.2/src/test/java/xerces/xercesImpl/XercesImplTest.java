@@ -18,7 +18,9 @@ import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
+import org.xml.sax.ext.LexicalHandler;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -231,6 +233,36 @@ class XercesImplTest {
             .isInstanceOf(SAXParseException.class);
     }
 
+    @Test
+    void saxParsing_lexicalHandler_emitsCommentsAndCdataBoundaries() throws Exception {
+        String xml = ""
+            + "<root>"
+            + "  <!--a comment-->"
+            + "  <c><![CDATA[some <cdata> & text]]></c>"
+            + "  <d>t<!--inline comment-->x</d>"
+            + "</root>";
+
+        SAXParserFactoryImpl spf = new SAXParserFactoryImpl();
+        spf.setNamespaceAware(true);
+
+        SAXParser parser = spf.newSAXParser();
+        XMLReader reader = parser.getXMLReader();
+
+        LexicalEventRecordingHandler lexical = new LexicalEventRecordingHandler();
+        reader.setProperty("http://xml.org/sax/properties/lexical-handler", lexical);
+        reader.setContentHandler(new DefaultHandler()); // we only assert lexical events
+
+        reader.parse(asInputSource(xml));
+
+        assertThat(lexical.events)
+            .containsExactly(
+                "comment:a comment",
+                "startCDATA",
+                "endCDATA",
+                "comment:inline comment"
+            );
+    }
+
     private static InputSource asInputSource(String xml) {
         InputSource is = new InputSource(new StringReader(xml));
         is.setSystemId("memory:xml"); // helps provide a base systemId for diagnostics
@@ -312,6 +344,45 @@ class XercesImplTest {
                 }
                 text.setLength(0);
             }
+        }
+    }
+
+    private static final class LexicalEventRecordingHandler implements LexicalHandler {
+        private final List<String> events = new ArrayList<>();
+
+        @Override
+        public void startDTD(String name, String publicId, String systemId) {
+            // not used in this test
+        }
+
+        @Override
+        public void endDTD() {
+            // not used in this test
+        }
+
+        @Override
+        public void startEntity(String name) {
+            // not used in this test
+        }
+
+        @Override
+        public void endEntity(String name) {
+            // not used in this test
+        }
+
+        @Override
+        public void startCDATA() {
+            events.add("startCDATA");
+        }
+
+        @Override
+        public void endCDATA() {
+            events.add("endCDATA");
+        }
+
+        @Override
+        public void comment(char[] ch, int start, int length) {
+            events.add("comment:" + new String(ch, start, length));
         }
     }
 }
