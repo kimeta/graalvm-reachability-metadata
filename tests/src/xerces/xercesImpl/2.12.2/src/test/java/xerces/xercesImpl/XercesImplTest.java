@@ -9,7 +9,6 @@ package xerces.xercesImpl;
 import org.apache.xerces.jaxp.DocumentBuilderFactoryImpl;
 import org.apache.xerces.jaxp.SAXParserFactoryImpl;
 import org.apache.xerces.jaxp.validation.XMLSchemaFactory;
-import org.apache.xerces.jaxp.validation.XMLSchema11Factory;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -29,6 +28,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -295,7 +295,8 @@ class XercesImplTest {
             + "  <age>15</age>"
             + "</person>";
 
-        XMLSchema11Factory schema11Factory = new XMLSchema11Factory();
+        // Obtain the XSD 1.1 SchemaFactory via JAXP using Xerces' registered URI
+        SchemaFactory schema11Factory = SchemaFactory.newInstance("http://www.w3.org/XML/XMLSchema/v1.1");
         schema11Factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
 
         Schema schema = schema11Factory.newSchema(new StreamSource(new StringReader(xsd11), "memory:xsd11"));
