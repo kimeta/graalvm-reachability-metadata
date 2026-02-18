@@ -14,6 +14,7 @@ import javax.transaction.Status;
 import javax.transaction.Synchronization;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
+import javax.transaction.TransactionSynchronizationRegistry;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
@@ -146,6 +147,66 @@ class JtaTest {
 
         assertThatThrownBy(ut::commit).isInstanceOf(RollbackException.class);
         assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
+    @Test
+    void shouldPerformTwoPhaseCommitWithMultipleXAResources() throws Exception {
+        javax.transaction.UserTransaction ut = com.arjuna.ats.jta.UserTransaction.userTransaction();
+        javax.transaction.TransactionManager tm = com.arjuna.ats.jta.TransactionManager.transactionManager();
+
+        ut.begin();
+        Transaction tx = tm.getTransaction();
+
+        RecordingXAResource xa1 = new RecordingXAResource();
+        RecordingXAResource xa2 = new RecordingXAResource();
+
+        assertThat(tx.enlistResource(xa1)).isTrue();
+        assertThat(tx.enlistResource(xa2)).isTrue();
+
+        ut.commit();
+
+        // With more than one resource, 2PC should be used (no one-phase optimization).
+        for (RecordingXAResource xa : new RecordingXAResource[]{xa1, xa2}) {
+            List<String> calls = xa.getCalls();
+            assertThat(calls).contains("start", "end", "prepare", "commit(false)");
+            assertThat(calls).doesNotContain("commit(true)", "rollback");
+
+            int prepareIdx = calls.indexOf("prepare");
+            int commitIdx = calls.indexOf("commit(false)");
+            assertThat(prepareIdx).isNotNegative();
+            assertThat(commitIdx).isNotNegative();
+            assertThat(prepareIdx).isLessThan(commitIdx);
+        }
+    }
+
+    @Test
+    void shouldBindResourcesWithTransactionSynchronizationRegistry() throws Exception {
+        javax.transaction.UserTransaction ut = com.arjuna.ats.jta.UserTransaction.userTransaction();
+        TransactionSynchronizationRegistry tsr =
+                com.arjuna.ats.jta.TransactionSynchronizationRegistry.transactionSynchronizationRegistry();
+
+        Object key = new Object();
+        String value = "resource-value";
+
+        ut.begin();
+        // Inside the transaction: association and retrieval should work
+        assertThat(tsr.getTransactionKey()).isNotNull();
+        assertThat(tsr.getResource(key)).isNull();
+
+        tsr.putResource(key, value);
+        assertThat(tsr.getResource(key)).isEqualTo(value);
+
+        ut.commit();
+
+        // After the transaction completes, resources are cleared and no transaction is active
+        assertThat(tsr.getTransactionKey()).isNull();
+        assertThat(tsr.getResource(key)).isNull();
+
+        // In a new transaction, the resource should not be present
+        ut.begin();
+        assertThat(tsr.getTransactionKey()).isNotNull();
+        assertThat(tsr.getResource(key)).isNull();
+        ut.commit();
     }
 
     // Helpers
