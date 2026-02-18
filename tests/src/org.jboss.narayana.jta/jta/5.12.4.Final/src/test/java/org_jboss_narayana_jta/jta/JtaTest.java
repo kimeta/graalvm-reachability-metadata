@@ -279,6 +279,50 @@ class JtaTest {
         assertThat(interposedAfterStatuses).containsExactly(Status.STATUS_ROLLEDBACK);
     }
 
+    @Test
+    void shouldRequireActiveTransactionForTSROperations() {
+        TransactionSynchronizationRegistry tsr =
+                com.arjuna.ats.jta.common.jtaPropertyManager.getJTAEnvironmentBean().getTransactionSynchronizationRegistry();
+
+        // Outside a transaction
+        assertThat(tsr.getTransactionKey()).isNull();
+        assertThat(tsr.getTransactionStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+
+        // Methods requiring an active transaction should throw IllegalStateException
+        assertThatThrownBy(tsr::getRollbackOnly).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> tsr.registerInterposedSynchronization(new Synchronization() {
+            @Override public void beforeCompletion() { }
+            @Override public void afterCompletion(int status) { }
+        })).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> tsr.putResource(new Object(), "value"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldExposeRollbackOnlyAndStatusViaTSR() throws Exception {
+        javax.transaction.UserTransaction ut = com.arjuna.ats.jta.UserTransaction.userTransaction();
+        TransactionSynchronizationRegistry tsr =
+                com.arjuna.ats.jta.common.jtaPropertyManager.getJTAEnvironmentBean().getTransactionSynchronizationRegistry();
+
+        ut.begin();
+
+        assertThat(tsr.getTransactionKey()).isNotNull();
+        assertThat(tsr.getTransactionStatus()).isEqualTo(Status.STATUS_ACTIVE);
+        assertThat(tsr.getRollbackOnly()).isFalse();
+
+        // Mark rollback-only via TSR and observe status change
+        tsr.setRollbackOnly();
+        assertThat(tsr.getRollbackOnly()).isTrue();
+        assertThat(tsr.getTransactionStatus()).isEqualTo(Status.STATUS_MARKED_ROLLBACK);
+
+        // Clean up with explicit rollback (no duplication of commit failure checks)
+        ut.rollback();
+
+        // After rollback, no transaction is active
+        assertThat(tsr.getTransactionKey()).isNull();
+        assertThat(tsr.getTransactionStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
     // Helpers
 
     private static void sleepMillis(long ms) {
