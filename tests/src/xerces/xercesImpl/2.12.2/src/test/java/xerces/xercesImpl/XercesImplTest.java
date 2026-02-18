@@ -11,6 +11,7 @@ import org.apache.xerces.jaxp.SAXParserFactoryImpl;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.TypeInfo;
 import org.xml.sax.Attributes;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
@@ -255,6 +256,78 @@ class XercesImplTest {
 
         String text = condenseWhitespace(String.join("", handler.characters));
         assertThat(text).isEqualTo("Expanded via resolver");
+    }
+
+    @Test
+    void domSchemaParsingProvidesTypeInfo() throws Exception {
+        String xsd = ""
+            + "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n"
+            + "           targetNamespace=\"urn:type\"\n"
+            + "           xmlns=\"urn:type\"\n"
+            + "           elementFormDefault=\"qualified\">\n"
+            + "  <xs:element name=\"person\" type=\"Person\"/>\n"
+            + "  <xs:complexType name=\"Person\">\n"
+            + "    <xs:sequence>\n"
+            + "      <xs:element name=\"name\" type=\"xs:string\"/>\n"
+            + "      <xs:element name=\"age\" type=\"xs:int\"/>\n"
+            + "    </xs:sequence>\n"
+            + "    <xs:attribute name=\"id\" type=\"xs:ID\" use=\"required\"/>\n"
+            + "  </xs:complexType>\n"
+            + "</xs:schema>";
+
+        String instance = ""
+            + "<ex:person xmlns:ex=\"urn:type\" id=\"p1\">\n"
+            + "  <ex:name>Alice</ex:name>\n"
+            + "  <ex:age>30</ex:age>\n"
+            + "</ex:person>";
+
+        // Ensure Xerces' XMLSchemaFactory is used to build the Schema
+        String previous = System.getProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        System.setProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI,
+            "org.apache.xerces.jaxp.validation.XMLSchemaFactory");
+        try {
+            SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            Schema schema = sf.newSchema(new StreamSource(new StringReader(xsd)));
+
+            DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+            dbf.setNamespaceAware(true);
+            dbf.setSchema(schema);
+
+            DocumentBuilder builder = dbf.newDocumentBuilder();
+            Document doc = builder.parse(new ByteArrayInputStream(instance.getBytes(StandardCharsets.UTF_8)));
+
+            Element root = doc.getDocumentElement();
+            TypeInfo rootTi = root.getSchemaTypeInfo();
+            assertThat(rootTi).isNotNull();
+            assertThat(rootTi.getTypeNamespace()).isEqualTo("urn:type");
+            assertThat(rootTi.getTypeName()).isEqualTo("Person");
+
+            // Attribute type info (xs:ID)
+            assertThat(root.getAttribute("id")).isEqualTo("p1");
+            TypeInfo idTi = root.getAttributeNode("id").getSchemaTypeInfo();
+            assertThat(idTi).isNotNull();
+            assertThat(idTi.getTypeNamespace()).isEqualTo(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            assertThat(idTi.getTypeName()).isEqualTo("ID");
+
+            // Child elements' simple types
+            Element nameEl = (Element) root.getElementsByTagNameNS("urn:type", "name").item(0);
+            TypeInfo nameTi = nameEl.getSchemaTypeInfo();
+            assertThat(nameTi).isNotNull();
+            assertThat(nameTi.getTypeNamespace()).isEqualTo(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            assertThat(nameTi.getTypeName()).isEqualTo("string");
+
+            Element ageEl = (Element) root.getElementsByTagNameNS("urn:type", "age").item(0);
+            TypeInfo ageTi = ageEl.getSchemaTypeInfo();
+            assertThat(ageTi).isNotNull();
+            assertThat(ageTi.getTypeNamespace()).isEqualTo(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            assertThat(ageTi.getTypeName()).isEqualTo("int");
+        } finally {
+            if (previous == null) {
+                System.clearProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            } else {
+                System.setProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI, previous);
+            }
+        }
     }
 
     // Helpers
