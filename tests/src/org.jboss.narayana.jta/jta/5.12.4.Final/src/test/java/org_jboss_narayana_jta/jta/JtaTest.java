@@ -21,6 +21,7 @@ import javax.transaction.xa.Xid;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -183,7 +184,7 @@ class JtaTest {
     void shouldBindResourcesWithTransactionSynchronizationRegistry() throws Exception {
         javax.transaction.UserTransaction ut = com.arjuna.ats.jta.UserTransaction.userTransaction();
         TransactionSynchronizationRegistry tsr =
-                com.arjuna.ats.jta.TransactionSynchronizationRegistry.transactionSynchronizationRegistry();
+                com.arjuna.ats.jta.common.jtaPropertyManager.getJTAEnvironmentBean().getTransactionSynchronizationRegistry();
 
         Object key = new Object();
         String value = "resource-value";
@@ -207,6 +208,62 @@ class JtaTest {
         assertThat(tsr.getTransactionKey()).isNotNull();
         assertThat(tsr.getResource(key)).isNull();
         ut.commit();
+    }
+
+    @Test
+    void shouldRegisterInterposedSynchronizationAndSetRollbackOnlyViaTSR() throws Exception {
+        javax.transaction.UserTransaction ut = com.arjuna.ats.jta.UserTransaction.userTransaction();
+        javax.transaction.TransactionManager tm = com.arjuna.ats.jta.TransactionManager.transactionManager();
+        TransactionSynchronizationRegistry tsr =
+                com.arjuna.ats.jta.common.jtaPropertyManager.getJTAEnvironmentBean().getTransactionSynchronizationRegistry();
+
+        AtomicBoolean standardBefore = new AtomicBoolean(false);
+        AtomicBoolean interposedBefore = new AtomicBoolean(false);
+        List<Integer> standardAfterStatuses = new ArrayList<>();
+        List<Integer> interposedAfterStatuses = new ArrayList<>();
+
+        ut.begin();
+
+        // Standard synchronization registered directly with the transaction
+        tm.getTransaction().registerSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                standardBefore.set(true);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                standardAfterStatuses.add(status);
+            }
+        });
+
+        // Interposed synchronization registered via TransactionSynchronizationRegistry
+        tsr.registerInterposedSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                interposedBefore.set(true);
+                // Force rollback using TSR flag
+                tsr.setRollbackOnly();
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                interposedAfterStatuses.add(status);
+            }
+        });
+
+        assertThat(ut.getStatus()).isEqualTo(Status.STATUS_ACTIVE);
+
+        // Commit should fail with RollbackException because we set rollback-only via TSR
+        assertThatThrownBy(ut::commit).isInstanceOf(RollbackException.class);
+
+        // Both synchronizations should have been called
+        assertThat(standardBefore).matches(AtomicBoolean::get);
+        assertThat(interposedBefore).matches(AtomicBoolean::get);
+
+        // After-completion should indicate rollback for both
+        assertThat(standardAfterStatuses).containsExactly(Status.STATUS_ROLLEDBACK);
+        assertThat(interposedAfterStatuses).containsExactly(Status.STATUS_ROLLEDBACK);
     }
 
     // Helpers
