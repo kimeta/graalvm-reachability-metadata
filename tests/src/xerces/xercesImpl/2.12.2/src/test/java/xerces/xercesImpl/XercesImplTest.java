@@ -18,6 +18,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
+import org.xml.sax.ext.LexicalHandler;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -330,6 +331,38 @@ class XercesImplTest {
         }
     }
 
+    @Test
+    void saxLexicalHandlerEmitsCommentsAndCdata() throws Exception {
+        String xml = ""
+            + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<!DOCTYPE root [\n"
+            + "  <!ELEMENT root (#PCDATA)>\n"
+            + "]>\n"
+            + "<!-- top comment -->\n"
+            + "<root>Text <![CDATA[<not markup> & more]]> <!-- inner comment --> end</root>";
+
+        SAXParserFactoryImpl factory = new SAXParserFactoryImpl();
+        factory.setNamespaceAware(true);
+        SAXParser parser = factory.newSAXParser();
+
+        LexicalCollectingHandler handler = new LexicalCollectingHandler();
+        parser.getXMLReader().setProperty("http://xml.org/sax/properties/lexical-handler", handler);
+        parser.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), handler);
+
+        // DTD boundary reported
+        assertThat(handler.dtdName).isEqualTo("root");
+
+        // Comments seen in both locations
+        String commentsJoined = condenseWhitespace(String.join(" | ", handler.comments));
+        assertThat(commentsJoined).contains("top comment");
+        assertThat(commentsJoined).contains("inner comment");
+
+        // CDATA callbacks and content captured
+        assertThat(handler.sawStartCdata).isTrue();
+        assertThat(handler.sawEndCdata).isTrue();
+        assertThat(handler.cdataTexts).containsExactly("<not markup> & more");
+    }
+
     // Helpers
 
     private static final class CollectingHandler extends DefaultHandler {
@@ -394,6 +427,89 @@ class XercesImplTest {
                 return new InputSource(new StringReader(content));
             }
             return null; // fall back to default resolution
+        }
+    }
+
+    private static final class LexicalCollectingHandler extends DefaultHandler implements LexicalHandler {
+        final List<String> comments = new ArrayList<>();
+        final List<String> cdataTexts = new ArrayList<>();
+        String dtdName;
+        boolean sawStartCdata;
+        boolean sawEndCdata;
+        private boolean inCdata;
+        private StringBuilder currentCdata;
+
+        @Override
+        public void startDTD(String name, String publicId, String systemId) {
+            this.dtdName = name;
+        }
+
+        @Override
+        public void endDTD() {
+            // no-op
+        }
+
+        @Override
+        public void startCDATA() {
+            sawStartCdata = true;
+            inCdata = true;
+            currentCdata = new StringBuilder();
+        }
+
+        @Override
+        public void endCDATA() {
+            sawEndCdata = true;
+            inCdata = false;
+            if (currentCdata != null) {
+                cdataTexts.add(currentCdata.toString());
+                currentCdata = null;
+            }
+        }
+
+        @Override
+        public void comment(char[] ch, int start, int length) {
+            comments.add(new String(ch, start, length));
+        }
+
+        @Override
+        public void startEntity(String name) {
+            // not used
+        }
+
+        @Override
+        public void endEntity(String name) {
+            // not used
+        }
+
+        @Override
+        public void startDTD(String name, String publicId, String systemId, String baseURI) {
+            // This 4-arg method does not exist in LexicalHandler; keep class binary compatible.
+        }
+
+        @Override
+        public void endDTD(String name) {
+            // This method does not exist in LexicalHandler; keep class binary compatible.
+        }
+
+        @Override
+        public void startPrefixMapping(String prefix, String uri) {
+            // not used
+        }
+
+        @Override
+        public void endPrefixMapping(String prefix) {
+            // not used
+        }
+
+        @Override
+        public void characters(char[] ch, int start, int length) {
+            if (inCdata && length > 0) {
+                if (currentCdata == null) {
+                    currentCdata = new StringBuilder();
+                }
+                currentCdata.append(ch, start, length);
+            }
+            super.characters(ch, start, length);
         }
     }
 
