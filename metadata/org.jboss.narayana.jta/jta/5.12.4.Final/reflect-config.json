@@ -1,0 +1,57 @@
+[
+{
+  "condition":{"typeReachable":"org.jboss.logging.LoggerProviders"},
+  "name":"ch.qos.logback.classic.Logger"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.ats.arjuna.logging.arjunaI18NLogger_$logger",
+  "methods":[{"name":"<init>","parameterTypes":["org.jboss.logging.Logger"] }]
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.ats.arjuna.logging.arjunaI18NLogger_$logger_en"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.ats.arjuna.logging.arjunaI18NLogger_$logger_en_US"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.ats.jta.logging.jtaI18NLogger_$logger",
+  "methods":[{"name":"<init>","parameterTypes":["org.jboss.logging.Logger"] }]
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.ats.jta.logging.jtaI18NLogger_$logger_en"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.ats.jta.logging.jtaI18NLogger_$logger_en_US"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.common.logging.commonI18NLogger_$logger",
+  "methods":[{"name":"<init>","parameterTypes":["org.jboss.logging.Logger"] }]
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.common.logging.commonI18NLogger_$logger_en"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.Logger"},
+  "name":"com.arjuna.common.logging.commonI18NLogger_$logger_en_US"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.LoggerProviders"},
+  "name":"org.apache.log4j.LogManager"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.LoggerProviders"},
+  "name":"org.apache.logging.log4j.Logger"
+},
+{
+  "condition":{"typeReachable":"org.jboss.logging.LoggerProviders"},
+  "name":"org.jboss.logmanager.LogManager"
+}
+]
