@@ -1,7 +1,7 @@
 /*
  * Copyright and related rights waived via CC0
  *
- * You should have received a copy of the CC0 legalcode along with this
+ * You should have received the CC0 legalcode along with this
  * work. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 package org_jboss_narayana_jta.jta;
@@ -16,6 +16,8 @@ import javax.transaction.RollbackException;
 import javax.transaction.Status;
 import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
+import javax.transaction.xa.XAResource;
+import javax.transaction.xa.Xid;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -132,40 +134,94 @@ class JtaTest {
     }
 
     @Test
-    void transactionSynchronizationRegistry_interposedSynchronization_seesResourcesInBeforeCompletion() throws Exception {
+    void transactionEnlistXAResource_onePhaseCommit_invokesCommitWithoutPrepare() throws Exception {
         javax.transaction.UserTransaction ut = UserTransaction.userTransaction();
         javax.transaction.TransactionManager tm = TransactionManager.transactionManager();
 
         ut.begin();
         assertThat(tm.getStatus()).isEqualTo(Status.STATUS_ACTIVE);
 
-        javax.transaction.TransactionSynchronizationRegistry tsr =
-                com.arjuna.ats.jta.TransactionSynchronizationRegistry.transactionSynchronizationRegistry();
+        Transaction tx = tm.getTransaction();
+        assertThat(tx).isNotNull();
 
-        tsr.putResource("foo", "bar");
-        assertThat(tsr.getResource("foo")).isEqualTo("bar");
-        assertThat(tsr.getTransactionKey()).isNotNull();
-
-        AtomicReference<String> observedInBefore = new AtomicReference<>();
-        AtomicReference<Integer> afterStatus = new AtomicReference<>();
-
-        tsr.registerInterposedSynchronization(new Synchronization() {
-            @Override
-            public void beforeCompletion() {
-                Object val = tsr.getResource("foo");
-                observedInBefore.set(val == null ? null : val.toString());
-            }
-
-            @Override
-            public void afterCompletion(int status) {
-                afterStatus.set(status);
-            }
-        });
+        RecordingXAResource resource = new RecordingXAResource();
+        boolean enlisted = tx.enlistResource(resource);
+        assertThat(enlisted).isTrue();
 
         ut.commit();
 
-        assertThat(observedInBefore.get()).isEqualTo("bar");
-        assertThat(afterStatus.get()).isEqualTo(Status.STATUS_COMMITTED);
+        assertThat(resource.prepareCalled).isFalse();
+        assertThat(resource.commitCalled).isTrue();
+        assertThat(resource.onePhaseCommit).isTrue();
+        assertThat(resource.rollbackCalled).isFalse();
+
         assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
+    private static final class RecordingXAResource implements XAResource {
+        volatile boolean startCalled = false;
+        volatile boolean endCalled = false;
+        volatile boolean prepareCalled = false;
+        volatile boolean commitCalled = false;
+        volatile boolean onePhaseCommit = false;
+        volatile boolean rollbackCalled = false;
+        volatile Xid seenXid = null;
+
+        @Override
+        public void commit(Xid xid, boolean onePhase) {
+            this.commitCalled = true;
+            this.onePhaseCommit = onePhase;
+            this.seenXid = xid;
+        }
+
+        @Override
+        public void end(Xid xid, int flags) {
+            this.endCalled = true;
+            this.seenXid = xid;
+        }
+
+        @Override
+        public void forget(Xid xid) {
+            // no-op
+        }
+
+        @Override
+        public int getTransactionTimeout() {
+            return 0;
+        }
+
+        @Override
+        public boolean isSameRM(XAResource xaResource) {
+            return false;
+        }
+
+        @Override
+        public int prepare(Xid xid) {
+            this.prepareCalled = true;
+            this.seenXid = xid;
+            return XA_OK;
+        }
+
+        @Override
+        public Xid[] recover(int flag) {
+            return new Xid[0];
+        }
+
+        @Override
+        public void rollback(Xid xid) {
+            this.rollbackCalled = true;
+            this.seenXid = xid;
+        }
+
+        @Override
+        public boolean setTransactionTimeout(int seconds) {
+            return false;
+        }
+
+        @Override
+        public void start(Xid xid, int flags) {
+            this.startCalled = true;
+            this.seenXid = xid;
+        }
     }
 }
