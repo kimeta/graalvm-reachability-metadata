@@ -6,13 +6,317 @@
  */
 package xerces.xercesImpl;
 
+import org.apache.xerces.jaxp.DocumentBuilderFactoryImpl;
+import org.apache.xerces.jaxp.SAXParserFactoryImpl;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.Attributes;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
 
-import static org.assertj.core.api.Assertions.fail;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.SAXParser;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
+import java.io.ByteArrayInputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class XercesImplTest {
+
     @Test
-    void test() throws Exception {
-        fail("TODO: Add test logic here");
+    void saxParsesNamespacesAndText() throws Exception {
+        String xml = ""
+            + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<ns:root xmlns:ns=\"urn:test\" attr=\"value\">\n"
+            + "  <ns:child id=\"1\">Hello <ns:inner/> World &amp; Unicode: Žlutý kůň — 𝛑</ns:child>\n"
+            + "</ns:root>";
+
+        SAXParserFactoryImpl factory = new SAXParserFactoryImpl();
+        factory.setNamespaceAware(true);
+        SAXParser parser = factory.newSAXParser();
+
+        CollectingHandler handler = new CollectingHandler();
+        parser.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), handler);
+
+        // Element sequence
+        assertThat(handler.startElementQNames)
+            .containsExactly("ns:root", "ns:child", "ns:inner");
+        assertThat(handler.endElementQNames)
+            .containsExactly("ns:inner", "ns:child", "ns:root");
+
+        // Namespace information surfaced via SAX2
+        assertThat(handler.startElementUris)
+            .containsExactly("urn:test", "urn:test", "urn:test");
+        assertThat(handler.startElementLocalNames)
+            .containsExactly("root", "child", "inner");
+
+        // Attributes captured for both elements
+        assertThat(handler.attributesByElement.get(0))
+            .containsEntry("attr", "value");
+        assertThat(handler.attributesByElement.get(1))
+            .containsEntry("id", "1");
+
+        // Combined character data should include expected text and decoded entities/Unicode
+        String allChars = condenseWhitespace(String.join("", handler.characters));
+        assertThat(allChars).contains("Hello");
+        assertThat(allChars).contains("World & Unicode: Žlutý kůň — 𝛑");
+
+        assertThat(handler.startedDocument).isTrue();
+        assertThat(handler.endedDocument).isTrue();
+    }
+
+    @Test
+    void domBuildsAndPreservesStructure() throws Exception {
+        String xml = ""
+            + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<ns:root xmlns:ns=\"urn:test\" attr=\"value\">\n"
+            + "  <ns:child id=\"1\">Hello <ns:inner/> World &amp; Unicode: Žlutý kůň — 𝛑</ns:child>\n"
+            + "</ns:root>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setNamespaceAware(true);
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+        Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+
+        Element root = doc.getDocumentElement();
+        assertThat(root.getNamespaceURI()).isEqualTo("urn:test");
+        assertThat(root.getLocalName()).isEqualTo("root");
+        assertThat(root.getAttribute("attr")).isEqualTo("value");
+
+        Element child = (Element) root.getElementsByTagNameNS("urn:test", "child").item(0);
+        assertThat(child).isNotNull();
+        assertThat(child.getAttribute("id")).isEqualTo("1");
+
+        // textContent merges character data across element boundaries and decodes entities
+        String text = condenseWhitespace(child.getTextContent());
+        assertThat(text).contains("Hello");
+        assertThat(text).contains("World & Unicode: Žlutý kůň — 𝛑");
+    }
+
+    @Test
+    void dtdValidationSuccessAndFailure() throws Exception {
+        String validXml = ""
+            + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<!DOCTYPE note [\n"
+            + "  <!ELEMENT note (to,from,heading,body)>\n"
+            + "  <!ELEMENT to (#PCDATA)>\n"
+            + "  <!ELEMENT from (#PCDATA)>\n"
+            + "  <!ELEMENT heading (#PCDATA)>\n"
+            + "  <!ELEMENT body (#PCDATA)>\n"
+            + "]>\n"
+            + "<note>\n"
+            + "  <to>Tove</to>\n"
+            + "  <from>Jani</from>\n"
+            + "  <heading>Reminder</heading>\n"
+            + "  <body>Don't forget me this weekend!</body>\n"
+            + "</note>";
+
+        String invalidXml = ""
+            + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<!DOCTYPE note [\n"
+            + "  <!ELEMENT note (to,from,heading,body)>\n"
+            + "  <!ELEMENT to (#PCDATA)>\n"
+            + "  <!ELEMENT from (#PCDATA)>\n"
+            + "  <!ELEMENT heading (#PCDATA)>\n"
+            + "  <!ELEMENT body (#PCDATA)>\n"
+            + "]>\n"
+            + "<note>\n"
+            + "  <to>Tove</to>\n"
+            + "  <from>Jani</from>\n"
+            + "  <heading>Reminder</heading>\n"
+            + "  <!-- missing <body> -->\n"
+            + "</note>";
+
+        DocumentBuilderFactoryImpl dbf = new DocumentBuilderFactoryImpl();
+        dbf.setValidating(true);
+        dbf.setNamespaceAware(false);
+
+        // Provide an ErrorHandler that escalates validation issues as exceptions
+        ErrorHandler throwingHandler = new ErrorHandler() {
+            @Override
+            public void warning(SAXParseException exception) throws SAXException {
+                throw exception;
+            }
+
+            @Override
+            public void error(SAXParseException exception) throws SAXException {
+                throw exception;
+            }
+
+            @Override
+            public void fatalError(SAXParseException exception) throws SAXException {
+                throw exception;
+            }
+        };
+
+        DocumentBuilder builder = dbf.newDocumentBuilder();
+        builder.setErrorHandler(throwingHandler);
+
+        // Valid document should parse without exception
+        builder.parse(new ByteArrayInputStream(validXml.getBytes(StandardCharsets.UTF_8)));
+
+        // Invalid document should trigger a validation error
+        assertThatThrownBy(() ->
+            builder.parse(new ByteArrayInputStream(invalidXml.getBytes(StandardCharsets.UTF_8)))
+        )
+            .isInstanceOf(SAXParseException.class)
+            .hasMessageContaining("content of element type \"note\"")
+            .satisfies(ex -> {
+                SAXParseException spe = (SAXParseException) ex;
+                assertThat(spe.getLineNumber()).isGreaterThan(0);
+                assertThat(spe.getColumnNumber()).isGreaterThan(0);
+            });
+    }
+
+    @Test
+    void xmlSchemaValidationValidAndInvalid() throws Exception {
+        String xsd = ""
+            + "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"\n"
+            + "           targetNamespace=\"urn:ex\"\n"
+            + "           xmlns=\"urn:ex\"\n"
+            + "           elementFormDefault=\"qualified\">\n"
+            + "  <xs:element name=\"person\" type=\"Person\"/>\n"
+            + "  <xs:complexType name=\"Person\">\n"
+            + "    <xs:sequence>\n"
+            + "      <xs:element name=\"name\" type=\"xs:string\"/>\n"
+            + "      <xs:element name=\"age\" type=\"xs:int\" minOccurs=\"0\"/>\n"
+            + "    </xs:sequence>\n"
+            + "    <xs:attribute name=\"id\" type=\"xs:ID\" use=\"required\"/>\n"
+            + "  </xs:complexType>\n"
+            + "</xs:schema>";
+
+        String valid = ""
+            + "<ex:person xmlns:ex=\"urn:ex\" id=\"p1\">\n"
+            + "  <ex:name>Alice</ex:name>\n"
+            + "  <ex:age>30</ex:age>\n"
+            + "</ex:person>";
+
+        String invalidMissingAttr = ""
+            + "<ex:person xmlns:ex=\"urn:ex\">\n"
+            + "  <ex:name>Bob</ex:name>\n"
+            + "</ex:person>";
+
+        // Use Xerces' SchemaFactory via JAXP (implementation supplied by xercesImpl)
+        String previous = System.getProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        System.setProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI,
+            "org.apache.xerces.jaxp.validation.XMLSchemaFactory");
+        try {
+            SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            Schema schema = sf.newSchema(new StreamSource(new StringReader(xsd)));
+            Validator validator = schema.newValidator();
+
+            // Valid instance should pass
+            validator.validate(new StreamSource(new StringReader(valid)));
+
+            // Invalid instance should fail due to missing required attribute @id
+            assertThatThrownBy(() -> validator.validate(new StreamSource(new StringReader(invalidMissingAttr))))
+                .isInstanceOf(SAXException.class)
+                .hasMessageContaining("attribute 'id' is required");
+        } finally {
+            if (previous == null) {
+                System.clearProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            } else {
+                System.setProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI, previous);
+            }
+        }
+    }
+
+    @Test
+    void entityResolutionWithCustomResolver() throws Exception {
+        String xml = ""
+            + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<!DOCTYPE root [\n"
+            + "  <!ENTITY ext SYSTEM \"urn:test:entity\">\n"
+            + "]>\n"
+            + "<root>&ext;</root>";
+
+        SAXParserFactoryImpl factory = new SAXParserFactoryImpl();
+        factory.setNamespaceAware(true);
+        SAXParser parser = factory.newSAXParser();
+
+        CollectingHandler handler = new CollectingHandler();
+
+        EntityResolver resolver = (publicId, systemId) -> {
+            if ("urn:test:entity".equals(systemId)) {
+                return new InputSource(new StringReader("Expanded via resolver"));
+            }
+            return null; // default handling
+        };
+
+        parser.getXMLReader().setEntityResolver(resolver);
+        parser.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), handler);
+
+        String text = condenseWhitespace(String.join("", handler.characters));
+        assertThat(text).isEqualTo("Expanded via resolver");
+    }
+
+    // Helpers
+
+    private static final class CollectingHandler extends DefaultHandler {
+        boolean startedDocument;
+        boolean endedDocument;
+        final List<String> startElementQNames = new ArrayList<>();
+        final List<String> startElementLocalNames = new ArrayList<>();
+        final List<String> startElementUris = new ArrayList<>();
+        final List<String> endElementQNames = new ArrayList<>();
+        final List<String> characters = new ArrayList<>();
+        final List<java.util.Map<String, String>> attributesByElement = new ArrayList<>();
+
+        @Override
+        public void startDocument() {
+            startedDocument = true;
+        }
+
+        @Override
+        public void endDocument() {
+            endedDocument = true;
+        }
+
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) {
+            startElementQNames.add(qName);
+            startElementLocalNames.add(localName);
+            startElementUris.add(uri);
+
+            java.util.Map<String, String> attrs = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < attributes.getLength(); i++) {
+                attrs.put(attributes.getQName(i), attributes.getValue(i));
+            }
+            attributesByElement.add(attrs);
+        }
+
+        @Override
+        public void endElement(String uri, String localName, String qName) {
+            endElementQNames.add(qName);
+        }
+
+        @Override
+        public void characters(char[] ch, int start, int length) {
+            if (length == 0) {
+                return;
+            }
+            String s = new String(ch, start, length);
+            if (!s.isEmpty()) {
+                characters.add(s);
+            }
+        }
+    }
+
+    private static String condenseWhitespace(String s) {
+        return s.replaceAll("\\s+", " ").trim();
     }
 }
