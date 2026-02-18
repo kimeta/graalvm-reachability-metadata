@@ -1,0 +1,10 @@
+[
+  {
+    "latest": true,
+    "metadata-version": "5.12.4.Final",
+    "module": "org.jboss.narayana.jta:jta",
+    "tested-versions": [
+      "5.12.4.Final"
+    ]
+  }
+]
