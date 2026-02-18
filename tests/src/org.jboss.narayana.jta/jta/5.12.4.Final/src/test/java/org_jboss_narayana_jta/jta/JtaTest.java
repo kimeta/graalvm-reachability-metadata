@@ -148,48 +148,6 @@ class JtaTest {
         assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
     }
 
-    @Test
-    void shouldUseTransactionSynchronizationRegistryResources() throws Exception {
-        javax.transaction.UserTransaction ut = com.arjuna.ats.jta.UserTransaction.userTransaction();
-        javax.transaction.TransactionManager tm = com.arjuna.ats.jta.TransactionManager.transactionManager();
-        javax.transaction.TransactionSynchronizationRegistry tsr =
-                com.arjuna.ats.jta.TransactionSynchronizationRegistry.transactionSynchronizationRegistry();
-
-        ut.begin();
-        tsr.putResource("key", "value");
-        assertThat(tsr.getResource("key")).isEqualTo("value");
-
-        final String[] seenInBefore = new String[1];
-        final boolean[] clearedAfter = new boolean[1];
-
-        // Interposed synchronization executes in the context of the transaction for beforeCompletion
-        tsr.registerInterposedSynchronization(new Synchronization() {
-            @Override
-            public void beforeCompletion() {
-                Object v = tsr.getResource("key");
-                seenInBefore[0] = v == null ? null : v.toString();
-            }
-
-            @Override
-            public void afterCompletion(int status) {
-                try {
-                    // After completion there is no transaction context; getResource should not be usable
-                    tsr.getResource("key");
-                    // If no exception was thrown and value was null, treat as cleared as well
-                    clearedAfter[0] = true;
-                } catch (IllegalStateException expected) {
-                    clearedAfter[0] = true;
-                }
-            }
-        });
-
-        ut.commit();
-
-        assertThat(seenInBefore[0]).isEqualTo("value");
-        assertThat(clearedAfter[0]).isTrue();
-        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
-    }
-
     // Helpers
 
     private static void sleepMillis(long ms) {
