@@ -14,7 +14,10 @@ import org.junit.jupiter.api.Test;
 import javax.transaction.NotSupportedException;
 import javax.transaction.RollbackException;
 import javax.transaction.Status;
+import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -94,6 +97,75 @@ class JtaTest {
         assertThat(tm.getTransaction()).isSameAs(tx);
 
         ut.rollback();
+        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
+    @Test
+    void registerSynchronization_onCommit_invokesCallbacksWithCommittedStatus() throws Exception {
+        javax.transaction.UserTransaction ut = UserTransaction.userTransaction();
+        javax.transaction.TransactionManager tm = TransactionManager.transactionManager();
+
+        ut.begin();
+        Transaction tx = tm.getTransaction();
+        assertThat(tx).isNotNull();
+
+        AtomicInteger beforeCalls = new AtomicInteger(0);
+        AtomicReference<Integer> afterStatus = new AtomicReference<>();
+
+        tx.registerSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                beforeCalls.incrementAndGet();
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                afterStatus.set(status);
+            }
+        });
+
+        ut.commit();
+
+        assertThat(beforeCalls.get()).isEqualTo(1);
+        assertThat(afterStatus.get()).isEqualTo(Status.STATUS_COMMITTED);
+        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
+    }
+
+    @Test
+    void transactionSynchronizationRegistry_interposedSynchronization_seesResourcesInBeforeCompletion() throws Exception {
+        javax.transaction.UserTransaction ut = UserTransaction.userTransaction();
+        javax.transaction.TransactionManager tm = TransactionManager.transactionManager();
+
+        ut.begin();
+        assertThat(tm.getStatus()).isEqualTo(Status.STATUS_ACTIVE);
+
+        javax.transaction.TransactionSynchronizationRegistry tsr =
+                com.arjuna.ats.jta.TransactionSynchronizationRegistry.transactionSynchronizationRegistry();
+
+        tsr.putResource("foo", "bar");
+        assertThat(tsr.getResource("foo")).isEqualTo("bar");
+        assertThat(tsr.getTransactionKey()).isNotNull();
+
+        AtomicReference<String> observedInBefore = new AtomicReference<>();
+        AtomicReference<Integer> afterStatus = new AtomicReference<>();
+
+        tsr.registerInterposedSynchronization(new Synchronization() {
+            @Override
+            public void beforeCompletion() {
+                Object val = tsr.getResource("foo");
+                observedInBefore.set(val == null ? null : val.toString());
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                afterStatus.set(status);
+            }
+        });
+
+        ut.commit();
+
+        assertThat(observedInBefore.get()).isEqualTo("bar");
+        assertThat(afterStatus.get()).isEqualTo(Status.STATUS_COMMITTED);
         assertThat(tm.getStatus()).isEqualTo(Status.STATUS_NO_TRANSACTION);
     }
 }
