@@ -9,6 +9,7 @@ package xerces.xercesImpl;
 import org.apache.xerces.jaxp.DocumentBuilderFactoryImpl;
 import org.apache.xerces.jaxp.SAXParserFactoryImpl;
 import org.apache.xerces.jaxp.validation.XMLSchemaFactory;
+import org.apache.xerces.jaxp.validation.XMLSchema11Factory;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -261,6 +262,56 @@ class XercesImplTest {
                 "endCDATA",
                 "comment:inline comment"
             );
+    }
+
+    @Test
+    void xmlSchema11Validation_validatesUsingXercesSchema11Factory_withAssertions() throws Exception {
+        String xsd11 = ""
+            + "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" "
+            + "           xmlns:vc=\"http://www.w3.org/2007/XMLSchema-versioning\" "
+            + "           targetNamespace=\"http://example.com/person11\" "
+            + "           xmlns=\"http://example.com/person11\" "
+            + "           elementFormDefault=\"qualified\" "
+            + "           vc:minVersion=\"1.1\">"
+            + "  <xs:element name=\"person\">"
+            + "    <xs:complexType>"
+            + "      <xs:sequence>"
+            + "        <xs:element name=\"age\" type=\"xs:int\"/>"
+            + "      </xs:sequence>"
+            + "      <xs:attribute name=\"status\" type=\"xs:string\" use=\"required\"/>"
+            + "      <!-- XSD 1.1 assertion ensuring consistency between age and status -->"
+            + "      <xs:assert test=\"(@status = 'adult' and age >= 18) or (@status = 'minor' and age lt 18)\"/>"
+            + "    </xs:complexType>"
+            + "  </xs:element>"
+            + "</xs:schema>";
+
+        String valid = ""
+            + "<person xmlns=\"http://example.com/person11\" status=\"adult\">"
+            + "  <age>21</age>"
+            + "</person>";
+
+        String invalid = ""
+            + "<person xmlns=\"http://example.com/person11\" status=\"adult\">"
+            + "  <age>15</age>"
+            + "</person>";
+
+        XMLSchema11Factory schema11Factory = new XMLSchema11Factory();
+        schema11Factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+
+        Schema schema = schema11Factory.newSchema(new StreamSource(new StringReader(xsd11), "memory:xsd11"));
+        Validator validator = schema.newValidator();
+
+        // Valid XML should pass under XSD 1.1 assertion
+        validator.validate(new StreamSource(new StringReader(valid), "memory:valid11.xml"));
+
+        // Invalid XML should fail due to assertion violation
+        assertThatThrownBy(() -> validator.validate(new StreamSource(new StringReader(invalid), "memory:invalid11.xml")))
+            .isInstanceOf(SAXParseException.class)
+            .satisfies(ex -> {
+                SAXParseException spe = (SAXParseException) ex;
+                assertThat(spe.getLineNumber()).isGreaterThan(0);
+                assertThat(spe.getPublicId()).isNull();
+            });
     }
 
     private static InputSource asInputSource(String xml) {
