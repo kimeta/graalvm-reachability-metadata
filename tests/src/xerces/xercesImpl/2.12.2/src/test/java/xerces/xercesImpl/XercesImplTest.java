@@ -500,7 +500,7 @@ class XercesImplTest {
                 }
                 currentCdata.append(ch, start, length);
             }
-            super.characters(ch, start, length);
+            // No need to call super.characters; DefaultHandler's implementation is a no-op and declares a checked exception.
         }
     }
 
