@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.Attributes;
-import org.xml.sax.EntityResolver;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -225,7 +224,7 @@ class XercesImplTest {
             // Invalid instance should fail due to missing required attribute @id
             assertThatThrownBy(() -> validator.validate(new StreamSource(new StringReader(invalidMissingAttr))))
                 .isInstanceOf(SAXException.class)
-                .hasMessageContaining("attribute 'id' is required");
+                .hasMessageContaining("Attribute 'id' must appear on element");
         } finally {
             if (previous == null) {
                 System.clearProperty("javax.xml.validation.SchemaFactory:" + XMLConstants.W3C_XML_SCHEMA_NS_URI);
@@ -249,15 +248,9 @@ class XercesImplTest {
         SAXParser parser = factory.newSAXParser();
 
         CollectingHandler handler = new CollectingHandler();
+        // Map our external entity to inline content via the handler's EntityResolver
+        handler.mapExternalEntity("urn:test:entity", "Expanded via resolver");
 
-        EntityResolver resolver = (publicId, systemId) -> {
-            if ("urn:test:entity".equals(systemId)) {
-                return new InputSource(new StringReader("Expanded via resolver"));
-            }
-            return null; // default handling
-        };
-
-        parser.getXMLReader().setEntityResolver(resolver);
         parser.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), handler);
 
         String text = condenseWhitespace(String.join("", handler.characters));
@@ -275,6 +268,7 @@ class XercesImplTest {
         final List<String> endElementQNames = new ArrayList<>();
         final List<String> characters = new ArrayList<>();
         final List<java.util.Map<String, String>> attributesByElement = new ArrayList<>();
+        final java.util.Map<String, String> externalEntities = new java.util.LinkedHashMap<>();
 
         @Override
         public void startDocument() {
@@ -313,6 +307,20 @@ class XercesImplTest {
             if (!s.isEmpty()) {
                 characters.add(s);
             }
+        }
+
+        // Allow tests to supply external entity content.
+        void mapExternalEntity(String systemId, String content) {
+            externalEntities.put(systemId, content);
+        }
+
+        @Override
+        public InputSource resolveEntity(String publicId, String systemId) {
+            String content = externalEntities.get(systemId);
+            if (content != null) {
+                return new InputSource(new StringReader(content));
+            }
+            return null; // fall back to default resolution
         }
     }
 
