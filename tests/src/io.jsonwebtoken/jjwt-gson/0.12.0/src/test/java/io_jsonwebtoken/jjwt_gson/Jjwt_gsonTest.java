@@ -6,11 +6,11 @@
  */
 package io_jsonwebtoken.jjwt_gson;
 
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.CompressionCodecs;
-import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.IncorrectClaimException;
+import io.jsonwebtoken.JwtParserBuilder;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.io.Encoders;
 import io.jsonwebtoken.security.Keys;
@@ -58,17 +58,26 @@ class Jjwt_gsonTest {
                 .signWith(firstKey, SignatureAlgorithm.HS256)
                 .compressWith(CompressionCodecs.GZIP)
                 .compact();
-        JwtParserBuilder jwtParserBuilder = Jwts.parser().setAllowedClockSkewSeconds(3 * 60).setSigningKey(firstKey);
+
+        JwtParserBuilder jwtParserBuilder = Jwts.parser()
+                .setAllowedClockSkewSeconds(3 * 60)
+                .setSigningKey(firstKey);
+
         assertThat(jwtParserBuilder.build().parseClaimsJws(firstCompactJws).getBody().getSubject()).isEqualTo("Joe");
         assertDoesNotThrow(() -> jwtParserBuilder.requireSubject("Joe").build().parseClaimsJws(firstCompactJws));
         assertDoesNotThrow(() -> jwtParserBuilder.requireIssuer("Aaron").build().parseClaimsJws(firstCompactJws));
         assertDoesNotThrow(() -> jwtParserBuilder.requireAudience("Abel").build().parseClaimsJws(firstCompactJws));
-        // This is an error caused by GSON's own parsing
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireExpiration(secondDate).build().parseClaimsJws(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireNotBefore(firstDate).build().parseClaimsJws(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireIssuedAt(firstDate).build().parseClaimsJws(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireId(uuidString).build().parseClaimsJws(firstCompactJws));
-        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.require("exampleClaim", "Adam").build().parseClaimsJws(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireExpiration(secondDate).build().parseClaimsJws(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireNotBefore(firstDate).build().parseClaimsJws(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireIssuedAt(firstDate).build().parseClaimsJws(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.requireId(uuidString).build().parseClaimsJws(firstCompactJws));
+        assertDoesNotThrow(() -> jwtParserBuilder.require("exampleClaim", "Adam").build().parseClaimsJws(firstCompactJws));
+
+        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireSubject("Jane").build().parseClaimsJws(firstCompactJws));
+        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireIssuer("Moses").build().parseClaimsJws(firstCompactJws));
+        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireAudience("Cain").build().parseClaimsJws(firstCompactJws));
+        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.requireId("different-id").build().parseClaimsJws(firstCompactJws));
+        assertThrows(IncorrectClaimException.class, () -> jwtParserBuilder.require("exampleClaim", "Eve").build().parseClaimsJws(firstCompactJws));
     }
 
     @Test
