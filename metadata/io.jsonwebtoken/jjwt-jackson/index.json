@@ -1,11 +1,18 @@
 [
   {
-    "latest": true,
-    "allowed-packages": [
-      "io.jsonwebtoken"
+    "latest" : true,
+    "metadata-version" : "0.12.7",
+    "test-version" : "0.12.0",
+    "tested-versions" : [
+      "0.12.7"
     ],
-    "metadata-version": "0.12.0",
-    "tested-versions": [
+    "allowed-packages" : [
+      "io.jsonwebtoken"
+    ]
+  },
+  {
+    "metadata-version" : "0.12.0",
+    "tested-versions" : [
       "0.12.0",
       "0.12.1",
       "0.12.2",
@@ -13,15 +20,18 @@
       "0.12.4",
       "0.12.5",
       "0.12.6"
+    ],
+    "allowed-packages" : [
+      "io.jsonwebtoken"
     ]
   },
   {
-    "allowed-packages": [
-      "io.jsonwebtoken"
-    ],
-    "metadata-version": "0.11.5",
-    "tested-versions": [
+    "metadata-version" : "0.11.5",
+    "tested-versions" : [
       "0.11.5"
+    ],
+    "allowed-packages" : [
+      "io.jsonwebtoken"
     ]
   }
 ]
