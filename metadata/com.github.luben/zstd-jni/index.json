@@ -1,12 +1,22 @@
 [
   {
-    "latest": true,
-    "allowed-packages": [
-      "com.github.luben"
+    "latest" : true,
+    "metadata-version" : "1.5.4-1",
+    "test-version" : "1.5.2-5",
+    "tested-versions" : [
+      "1.5.4-1"
     ],
-    "metadata-version": "1.5.2-5",
-    "tested-versions": [
+    "allowed-packages" : [
+      "com.github.luben"
+    ]
+  },
+  {
+    "metadata-version" : "1.5.2-5",
+    "tested-versions" : [
       "1.5.2-5"
+    ],
+    "allowed-packages" : [
+      "com.github.luben"
     ]
   }
 ]
