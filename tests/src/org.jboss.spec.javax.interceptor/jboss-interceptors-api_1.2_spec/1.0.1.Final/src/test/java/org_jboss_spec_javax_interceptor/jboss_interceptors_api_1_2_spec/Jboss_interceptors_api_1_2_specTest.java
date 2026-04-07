@@ -32,6 +32,7 @@ import javax.interceptor.InvocationContext;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class Jboss_interceptors_api_1_2_specTest {
 
@@ -156,6 +157,46 @@ class Jboss_interceptors_api_1_2_specTest {
         );
     }
 
+    @Test
+    void lifecycleInvocationContextRejectsParameterAccessAndAllowsProceed() throws Exception {
+        LifecycleMonitoringInterceptor interceptor = new LifecycleMonitoringInterceptor();
+        LifecycleComponent component = new LifecycleComponent("beta");
+        Map<String, Object> lifecycleData = new LinkedHashMap<>();
+        LifecycleInvocationContext lifecycleContext = new LifecycleInvocationContext(
+                component,
+                lifecycleData,
+                () -> {
+                    component.markStarted();
+                    lifecycleData.put("callback", "completed");
+                    return null;
+                }
+        );
+
+        assertThat(lifecycleContext.getTarget()).isSameAs(component);
+        assertThat(lifecycleContext.getMethod()).isNull();
+        assertThat(lifecycleContext.getConstructor()).isNull();
+        assertThat(lifecycleContext.getTimer()).isNull();
+        assertThatThrownBy(lifecycleContext::getParameters)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Lifecycle callbacks do not expose invocation parameters");
+        assertThatThrownBy(() -> lifecycleContext.setParameters(new Object[] { "ignored" }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Lifecycle callbacks do not expose invocation parameters");
+
+        Object result = interceptor.aroundLifecycle(lifecycleContext);
+
+        assertThat(result).isNull();
+        assertThat(component.isStarted()).isTrue();
+        assertThat(lifecycleData)
+                .containsEntry("componentName", "beta")
+                .containsEntry("callback", "completed")
+                .containsEntry("afterProceed", true);
+        assertThat(interceptor.events()).containsExactly(
+                "lifecycle:beta:before",
+                "lifecycle:beta:after"
+        );
+    }
+
     private static void assertRuntimeAnnotation(Class<? extends Annotation> annotationType, ElementType... expectedTargets) {
         Retention retention = annotationType.getAnnotation(Retention.class);
         Target target = annotationType.getAnnotation(Target.class);
@@ -246,6 +287,48 @@ class Jboss_interceptors_api_1_2_specTest {
         }
     }
 
+    @Interceptor
+    @Monitored
+    private static final class LifecycleMonitoringInterceptor {
+        private final List<String> events = new ArrayList<>();
+
+        public Object aroundLifecycle(InvocationContext invocationContext) throws Exception {
+            LifecycleComponent component = (LifecycleComponent) invocationContext.getTarget();
+
+            invocationContext.getContextData().put("componentName", component.getName());
+            events.add("lifecycle:" + component.getName() + ":before");
+            Object result = invocationContext.proceed();
+            invocationContext.getContextData().put("afterProceed", Boolean.TRUE);
+            events.add("lifecycle:" + component.getName() + ":after");
+            return result;
+        }
+
+        private List<String> events() {
+            return events;
+        }
+    }
+
+    private static final class LifecycleComponent {
+        private final String name;
+        private boolean started;
+
+        private LifecycleComponent(String name) {
+            this.name = name;
+        }
+
+        private String getName() {
+            return name;
+        }
+
+        private boolean isStarted() {
+            return started;
+        }
+
+        private void markStarted() {
+            started = true;
+        }
+    }
+
     private static final class RecordingInvocationContext implements InvocationContext {
         private Object target;
         private final Method method;
@@ -318,8 +401,69 @@ class Jboss_interceptors_api_1_2_specTest {
         }
     }
 
+    private static final class LifecycleInvocationContext implements InvocationContext {
+        private final Object target;
+        private final Map<String, Object> contextData;
+        private final LifecycleProceedHandler proceedHandler;
+
+        private LifecycleInvocationContext(
+                Object target,
+                Map<String, Object> contextData,
+                LifecycleProceedHandler proceedHandler
+        ) {
+            this.target = target;
+            this.contextData = contextData;
+            this.proceedHandler = proceedHandler;
+        }
+
+        @Override
+        public Object getTarget() {
+            return target;
+        }
+
+        @Override
+        public Method getMethod() {
+            return null;
+        }
+
+        @Override
+        public Constructor<?> getConstructor() {
+            return null;
+        }
+
+        @Override
+        public Object[] getParameters() {
+            throw new IllegalStateException("Lifecycle callbacks do not expose invocation parameters");
+        }
+
+        @Override
+        public void setParameters(Object[] parameters) {
+            throw new IllegalStateException("Lifecycle callbacks do not expose invocation parameters");
+        }
+
+        @Override
+        public Map<String, Object> getContextData() {
+            return contextData;
+        }
+
+        @Override
+        public Object getTimer() {
+            return null;
+        }
+
+        @Override
+        public Object proceed() throws Exception {
+            return proceedHandler.proceed();
+        }
+    }
+
     @FunctionalInterface
     private interface ProceedHandler {
         Object proceed(Object[] parameters) throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface LifecycleProceedHandler {
+        Object proceed() throws Exception;
     }
 }
