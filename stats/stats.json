@@ -5064,6 +5064,26 @@
         }
       }
     },
+    "org.jboss.spec.javax.interceptor:jboss-interceptors-api_1.2_spec" : {
+      "metadataVersions" : {
+        "1.0.1.Final" : {
+          "versions" : [ {
+            "version" : "1.0.1.Final",
+            "dynamicAccess" : {
+              "breakdown" : { },
+              "coverageRatio" : 1.0,
+              "coveredCalls" : 0,
+              "totalCalls" : 0
+            },
+            "libraryCoverage" : {
+              "instruction" : "N/A",
+              "line" : "N/A",
+              "method" : "N/A"
+            }
+          } ]
+        }
+      }
+    },
     "org.jboss.spec.javax.servlet:jboss-servlet-api_4.0_spec" : {
       "metadataVersions" : {
         "2.0.0.Final" : {
