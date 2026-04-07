@@ -197,6 +197,44 @@ class Jboss_interceptors_api_1_2_specTest {
         );
     }
 
+    @Test
+    void invocationContextSharesContextDataAcrossInterceptorChain() throws Exception {
+        ChainedComponent component = new ChainedComponent();
+        List<String> events = new ArrayList<>();
+        ParameterPropagatingInterceptor parameterInterceptor = new ParameterPropagatingInterceptor(events);
+        ResultObservingInterceptor resultInterceptor = new ResultObservingInterceptor(events);
+        Map<String, Object> contextData = new LinkedHashMap<>();
+        Method joinMethod = ChainedComponent.class.getMethod("join", String.class, String.class);
+        ChainedInvocationContext invocationContext = new ChainedInvocationContext(
+                component,
+                joinMethod,
+                new Object[] { "left", "right" },
+                contextData,
+                List.of(parameterInterceptor::aroundInvoke, resultInterceptor::aroundInvoke),
+                parameters -> {
+                    events.add("target");
+                    return component.join((String) parameters[0], (String) parameters[1]);
+                }
+        );
+
+        Object result = invocationContext.proceed();
+
+        assertThat(result).isEqualTo("LEFT:right-tail|verified");
+        assertThat(invocationContext.getParameters()).containsExactly("LEFT", "right-tail");
+        assertThat(contextData)
+                .containsEntry("originalParameters", List.of("left", "right"))
+                .containsEntry("mutatedParameters", List.of("LEFT", "right-tail"))
+                .containsEntry("targetResult", "LEFT:right-tail")
+                .containsEntry("chainCompleted", true);
+        assertThat(events).containsExactly(
+                "first:before",
+                "second:before",
+                "target",
+                "second:after",
+                "first:after"
+        );
+    }
+
     private static void assertRuntimeAnnotation(Class<? extends Annotation> annotationType, ElementType... expectedTargets) {
         Retention retention = annotationType.getAnnotation(Retention.class);
         Target target = annotationType.getAnnotation(Target.class);
@@ -329,6 +367,58 @@ class Jboss_interceptors_api_1_2_specTest {
         }
     }
 
+    @Interceptor
+    private static final class ParameterPropagatingInterceptor {
+        private final List<String> events;
+
+        private ParameterPropagatingInterceptor(List<String> events) {
+            this.events = events;
+        }
+
+        @AroundInvoke
+        public Object aroundInvoke(InvocationContext invocationContext) throws Exception {
+            Object[] parameters = invocationContext.getParameters();
+
+            events.add("first:before");
+            invocationContext.getContextData().put("originalParameters", List.of(parameters[0], parameters[1]));
+            invocationContext.setParameters(new Object[] {
+                    ((String) parameters[0]).toUpperCase(),
+                    parameters[1] + "-tail"
+            });
+
+            Object result = invocationContext.proceed();
+            invocationContext.getContextData().put("chainCompleted", Boolean.TRUE);
+            events.add("first:after");
+            return result;
+        }
+    }
+
+    @Interceptor
+    private static final class ResultObservingInterceptor {
+        private final List<String> events;
+
+        private ResultObservingInterceptor(List<String> events) {
+            this.events = events;
+        }
+
+        @AroundInvoke
+        public Object aroundInvoke(InvocationContext invocationContext) throws Exception {
+            events.add("second:before");
+            invocationContext.getContextData().put("mutatedParameters", List.of(invocationContext.getParameters()));
+
+            Object result = invocationContext.proceed();
+            invocationContext.getContextData().put("targetResult", result);
+            events.add("second:after");
+            return result + "|verified";
+        }
+    }
+
+    private static final class ChainedComponent {
+        public String join(String left, String right) {
+            return left + ":" + right;
+        }
+    }
+
     private static final class RecordingInvocationContext implements InvocationContext {
         private Object target;
         private final Method method;
@@ -401,6 +491,76 @@ class Jboss_interceptors_api_1_2_specTest {
         }
     }
 
+    private static final class ChainedInvocationContext implements InvocationContext {
+        private final Object target;
+        private final Method method;
+        private Object[] parameters;
+        private final Map<String, Object> contextData;
+        private final List<InterceptorInvocationHandler> interceptorChain;
+        private final ProceedHandler terminalHandler;
+        private int interceptorIndex;
+
+        private ChainedInvocationContext(
+                Object target,
+                Method method,
+                Object[] parameters,
+                Map<String, Object> contextData,
+                List<InterceptorInvocationHandler> interceptorChain,
+                ProceedHandler terminalHandler
+        ) {
+            this.target = target;
+            this.method = method;
+            this.parameters = parameters.clone();
+            this.contextData = contextData;
+            this.interceptorChain = interceptorChain;
+            this.terminalHandler = terminalHandler;
+        }
+
+        @Override
+        public Object getTarget() {
+            return target;
+        }
+
+        @Override
+        public Method getMethod() {
+            return method;
+        }
+
+        @Override
+        public Constructor<?> getConstructor() {
+            return null;
+        }
+
+        @Override
+        public Object[] getParameters() {
+            return parameters.clone();
+        }
+
+        @Override
+        public void setParameters(Object[] parameters) {
+            this.parameters = parameters.clone();
+        }
+
+        @Override
+        public Map<String, Object> getContextData() {
+            return contextData;
+        }
+
+        @Override
+        public Object getTimer() {
+            return null;
+        }
+
+        @Override
+        public Object proceed() throws Exception {
+            if (interceptorIndex < interceptorChain.size()) {
+                InterceptorInvocationHandler handler = interceptorChain.get(interceptorIndex++);
+                return handler.invoke(this);
+            }
+            return terminalHandler.proceed(parameters.clone());
+        }
+    }
+
     private static final class LifecycleInvocationContext implements InvocationContext {
         private final Object target;
         private final Map<String, Object> contextData;
@@ -465,5 +625,10 @@ class Jboss_interceptors_api_1_2_specTest {
     @FunctionalInterface
     private interface LifecycleProceedHandler {
         Object proceed() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface InterceptorInvocationHandler {
+        Object invoke(InvocationContext invocationContext) throws Exception;
     }
 }
