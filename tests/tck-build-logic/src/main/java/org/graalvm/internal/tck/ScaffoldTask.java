@@ -14,7 +14,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.graalvm.internal.tck.model.MetadataVersionsIndexEntry;
 import org.graalvm.internal.tck.utils.CoordinateUtils;
+import org.graalvm.internal.tck.utils.JarUtils;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.TaskAction;
@@ -29,6 +33,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Generates a scaffold for a new library.
@@ -81,6 +87,7 @@ class ScaffoldTask extends DefaultTask {
     @TaskAction
     void run() throws IOException {
         Coordinates coordinates = Coordinates.parse(this.coordinates);
+        List<String> packageRoots = derivePackageRoots(coordinates);
 
         Path coordinatesMetadataRoot = getProject().file(CoordinateUtils.replace("metadata/$group$/$artifact$", coordinates)).toPath();
         Path coordinatesMetadataVersionRoot = coordinatesMetadataRoot.resolve(coordinates.version());
@@ -98,16 +105,16 @@ class ScaffoldTask extends DefaultTask {
                 if (!update) {
                     getLogger().log(LogLevel.INFO, "Artifact metadata root already exists for {}, appending new version entry", coordinates);
                 }
-                updateCoordinatesMetadataRootJson(coordinatesMetadataRoot, coordinates);
+                updateCoordinatesMetadataRootJson(coordinatesMetadataRoot, coordinates, packageRoots);
             }
         } else {
-            writeCoordinatesMetadataRootJson(coordinatesMetadataRoot, coordinates);
+            writeCoordinatesMetadataRootJson(coordinatesMetadataRoot, coordinates, packageRoots);
         }
 
         writeCoordinatesMetadataVersionJsons(coordinatesMetadataVersionRoot, coordinates);
 
         // Tests
-        writeTestScaffold(coordinatesTestRoot, coordinates);
+        writeTestScaffold(coordinatesTestRoot, coordinates, packageRoots);
 
         System.out.printf("Generated metadata and test for %s%n", coordinates);
         System.out.printf("You can now use 'gradle test -Pcoordinates=%s' to run the tests%n", coordinates);
@@ -135,7 +142,7 @@ class ScaffoldTask extends DefaultTask {
         return entries.stream().noneMatch(e -> e.metadataVersion().equalsIgnoreCase(coordinates.version()));
     }
 
-    private void writeTestScaffold(Path coordinatesTestRoot, Coordinates coordinates) throws IOException {
+    private void writeTestScaffold(Path coordinatesTestRoot, Coordinates coordinates, List<String> packageRoots) throws IOException {
         // build.gradle
         writeToFile(
                 coordinatesTestRoot.resolve("build.gradle"),
@@ -145,7 +152,7 @@ class ScaffoldTask extends DefaultTask {
         // user-code-filter.json
         writeToFile(
                 coordinatesTestRoot.resolve("user-code-filter.json"),
-                CoordinateUtils.replace(loadResource("/scaffold/user-code-filter.json.template"), coordinates)
+                buildUserCodeFilter(packageRoots)
         );
 
         // settings.gradle
@@ -185,15 +192,21 @@ class ScaffoldTask extends DefaultTask {
         );
     }
 
-    private void writeCoordinatesMetadataRootJson(Path metadataRoot, Coordinates coordinates) throws IOException {
+    private void writeCoordinatesMetadataRootJson(Path metadataRoot, Coordinates coordinates, List<String> packageRoots) throws IOException {
         // metadata/$group$/$artifact$/index.json
+        String template = loadResource("/scaffold/metadataIndex.json.template");
+        // Replace $group$ in allowed-packages with the JAR-derived roots
+        String allowedPackagesJson = packageRoots.stream()
+                .map(root -> "\"" + root + "\"")
+                .collect(Collectors.joining(", "));
+        template = template.replace("\"$group$\"", allowedPackagesJson);
         writeToFile(
                 metadataRoot.resolve("index.json"),
-                CoordinateUtils.replace(loadResource("/scaffold/metadataIndex.json.template"), coordinates)
+                CoordinateUtils.replace(template, coordinates)
         );
     }
 
-    private void updateCoordinatesMetadataRootJson(Path metadataRoot, Coordinates coordinates) throws IOException {
+    private void updateCoordinatesMetadataRootJson(Path metadataRoot, Coordinates coordinates, List<String> packageRoots) throws IOException {
         if (!shouldAddNewMetadataEntry(metadataRoot, coordinates)) {
             throw new RuntimeException("Metadata for " + coordinates + " already exists!");
         }
@@ -215,7 +228,7 @@ class ScaffoldTask extends DefaultTask {
                 null, // description
                 List.of(coordinates.version()), // tested-versions
                 null, // skipped-versions
-                List.of(coordinates.group()), // allowed-packages (default to group)
+                packageRoots, // allowed-packages (derived from JAR)
                 null // requires
         );
 
@@ -267,6 +280,52 @@ class ScaffoldTask extends DefaultTask {
         for (int i = 0; i < entries.size(); i++) {
             setLatest(entries, i, i == latestIndex ? true : null);
         }
+    }
+
+    /// Resolves the binary JAR for the given coordinates and derives minimal package roots.
+    private List<String> derivePackageRoots(Coordinates coordinates) throws IOException {
+        DependencyHandler dependencies = getProject().getDependencies();
+        Configuration configuration = getProject().getConfigurations().detachedConfiguration(
+                dependencies.create(coordinates.group() + ":" + coordinates.artifact() + ":" + coordinates.version())
+        );
+        configuration.setTransitive(false);
+
+        List<Path> jars = configuration.resolve().stream()
+                .map(file -> file.toPath().toAbsolutePath())
+                .toList();
+
+        if (jars.isEmpty()) {
+            throw new GradleException("Failed to resolve JAR for " + coordinates);
+        }
+
+        Set<String> classNames = JarUtils.loadClassNames(jars);
+        List<String> roots = JarUtils.derivePackageRoots(classNames);
+
+        if (roots.isEmpty()) {
+            getLogger().log(LogLevel.WARN, "No packages found in JAR for {}, falling back to group ID", coordinates);
+            return List.of(coordinates.group());
+        }
+
+        getLogger().log(LogLevel.INFO, "Derived package roots for {}: {}", coordinates, roots);
+        return roots;
+    }
+
+    /// Builds user-code-filter.json content with an excludeClasses rule and one includeClasses per root.
+    private String buildUserCodeFilter(List<String> packageRoots) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\n");
+        sb.append("  \"rules\": [\n");
+        sb.append("    {\n");
+        sb.append("      \"excludeClasses\": \"**\"\n");
+        sb.append("    }");
+        for (String root : packageRoots) {
+            sb.append(",\n    {\n");
+            sb.append("      \"includeClasses\": \"").append(root).append(".**\"\n");
+            sb.append("    }");
+        }
+        sb.append("\n  ]\n");
+        sb.append("}\n");
+        return sb.toString();
     }
 
     private String loadResource(String name) throws IOException {
