@@ -19,8 +19,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,188 +37,212 @@ class ScaffoldTaskTests {
 
     @Test
     void runCreatesCompleteScaffoldFromTemplates() throws IOException {
-        Coordinates coordinates = Coordinates.parse("com.example.lib:some-artifact:1.0.0.FINAL");
-        Project project = ProjectBuilder.builder()
-                .withProjectDir(tempDir.toFile())
-                .build();
-        ScaffoldTask task = project.getTasks().register("scaffold", ScaffoldTask.class).get();
-        task.setCoordinates(coordinates.toString());
+        Coordinates coordinates = Coordinates.parse("org.lz4:lz4-java:1.8.0");
+        installLibraryArtifact(coordinates, List.of(
+                "net/jpountz/lz4/LZ4Factory.class",
+                "net/jpountz/util/SafeUtils.class",
+                "META-INF/versions/11/net/jpountz/lz4/LZ4FrameInputStream.class",
+                "module-info.class"
+        ));
+        Project project = createProject();
+        ScaffoldTask task = registerScaffoldTask(project, "scaffold", coordinates);
 
         task.run();
 
         assertThat(listGeneratedFiles()).containsExactly(
-                "metadata/com.example.lib/some-artifact/1.0.0.FINAL/reachability-metadata.json",
-                "metadata/com.example.lib/some-artifact/index.json",
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/.gitignore",
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/build.gradle",
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/gradle.properties",
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/settings.gradle",
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/src/test/java/com_example_lib/some_artifact/Some_artifactTest.java",
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/user-code-filter.json"
+                "metadata/org.lz4/lz4-java/1.8.0/reachability-metadata.json",
+                "metadata/org.lz4/lz4-java/index.json",
+                "tests/src/org.lz4/lz4-java/1.8.0/.gitignore",
+                "tests/src/org.lz4/lz4-java/1.8.0/build.gradle",
+                "tests/src/org.lz4/lz4-java/1.8.0/gradle.properties",
+                "tests/src/org.lz4/lz4-java/1.8.0/settings.gradle",
+                "tests/src/org.lz4/lz4-java/1.8.0/src/test/java/org_lz4/lz4_java/Lz4_javaTest.java",
+                "tests/src/org.lz4/lz4-java/1.8.0/user-code-filter.json"
         );
 
-        assertGeneratedFileMatchesTemplate(
-                coordinates,
-                "metadata/com.example.lib/some-artifact/index.json",
-                "/scaffold/metadataIndex.json.template"
+        assertGeneratedMetadataIndex(
+                "metadata/org.lz4/lz4-java/index.json",
+                List.of("net.jpountz"),
+                List.of("1.8.0")
         );
         assertGeneratedFileMatchesTemplate(
                 coordinates,
-                "metadata/com.example.lib/some-artifact/1.0.0.FINAL/reachability-metadata.json",
+                "metadata/org.lz4/lz4-java/1.8.0/reachability-metadata.json",
                 "/scaffold/reachability-metadata.json.template"
         );
         assertGeneratedReachabilityMetadataIsEmptyJsonObject(
-                "metadata/com.example.lib/some-artifact/1.0.0.FINAL/reachability-metadata.json"
+                "metadata/org.lz4/lz4-java/1.8.0/reachability-metadata.json"
         );
         assertGeneratedFileMatchesTemplate(
                 coordinates,
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/.gitignore",
+                "tests/src/org.lz4/lz4-java/1.8.0/.gitignore",
                 "/scaffold/.gitignore.template"
         );
         assertGeneratedFileMatchesTemplate(
                 coordinates,
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/build.gradle",
+                "tests/src/org.lz4/lz4-java/1.8.0/build.gradle",
                 "/scaffold/build.gradle.template"
         );
         assertGeneratedFileMatchesTemplate(
                 coordinates,
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/gradle.properties",
+                "tests/src/org.lz4/lz4-java/1.8.0/gradle.properties",
                 "/scaffold/gradle.properties.template"
         );
         assertGeneratedFileMatchesTemplate(
                 coordinates,
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/settings.gradle",
+                "tests/src/org.lz4/lz4-java/1.8.0/settings.gradle",
                 "/scaffold/settings.gradle.template"
         );
-        assertGeneratedFileMatchesTemplate(
-                coordinates,
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/user-code-filter.json",
-                "/scaffold/user-code-filter.json.template"
+        assertGeneratedUserCodeFilter(
+                "tests/src/org.lz4/lz4-java/1.8.0/user-code-filter.json",
+                List.of("net.jpountz")
         );
         assertGeneratedFileMatchesTemplate(
                 coordinates,
-                "tests/src/com.example.lib/some-artifact/1.0.0.FINAL/src/test/java/com_example_lib/some_artifact/Some_artifactTest.java",
+                "tests/src/org.lz4/lz4-java/1.8.0/src/test/java/org_lz4/lz4_java/Lz4_javaTest.java",
                 "/scaffold/Test.java.template"
         );
     }
 
     @Test
     void runWithSkipTestsOmitsOnlyJavaTestStub() throws IOException {
-        Coordinates coordinates = Coordinates.parse("com.example:demo:1.0.0");
-        Project project = ProjectBuilder.builder()
-                .withProjectDir(tempDir.toFile())
-                .build();
-        ScaffoldTask task = project.getTasks().register("scaffold", ScaffoldTask.class).get();
-        task.setCoordinates(coordinates.toString());
+        Coordinates coordinates = Coordinates.parse("org.postgresql:postgresql:42.7.3");
+        installLibraryArtifact(coordinates, List.of(
+                "org/postgresql/Driver.class",
+                "org/postgresql/util/PGobject.class"
+        ));
+        Project project = createProject();
+        ScaffoldTask task = registerScaffoldTask(project, "scaffold", coordinates);
         task.setSkipTests(true);
 
         task.run();
 
         assertThat(listGeneratedFiles()).containsExactly(
-                "metadata/com.example/demo/1.0.0/reachability-metadata.json",
-                "metadata/com.example/demo/index.json",
-                "tests/src/com.example/demo/1.0.0/.gitignore",
-                "tests/src/com.example/demo/1.0.0/build.gradle",
-                "tests/src/com.example/demo/1.0.0/gradle.properties",
-                "tests/src/com.example/demo/1.0.0/settings.gradle",
-                "tests/src/com.example/demo/1.0.0/user-code-filter.json"
+                "metadata/org.postgresql/postgresql/42.7.3/reachability-metadata.json",
+                "metadata/org.postgresql/postgresql/index.json",
+                "tests/src/org.postgresql/postgresql/42.7.3/.gitignore",
+                "tests/src/org.postgresql/postgresql/42.7.3/build.gradle",
+                "tests/src/org.postgresql/postgresql/42.7.3/gradle.properties",
+                "tests/src/org.postgresql/postgresql/42.7.3/settings.gradle",
+                "tests/src/org.postgresql/postgresql/42.7.3/user-code-filter.json"
         );
 
-        assertThat(tempDir.resolve("tests/src/com.example/demo/1.0.0/src/test/java/com_example/demo/DemoTest.java"))
+        assertGeneratedUserCodeFilter(
+                "tests/src/org.postgresql/postgresql/42.7.3/user-code-filter.json",
+                List.of("org.postgresql")
+        );
+        assertThat(tempDir.resolve("tests/src/org.postgresql/postgresql/42.7.3/src/test/java/org_postgresql/postgresql/PostgresqlTest.java"))
                 .doesNotExist();
     }
 
     @Test
     void runWithUpdateAddsNewVersionMetadataAndTestScaffold() throws IOException {
-        Project project = ProjectBuilder.builder()
-                .withProjectDir(tempDir.toFile())
-                .build();
+        Coordinates initialCoordinates = Coordinates.parse("org.postgresql:postgresql:42.7.2");
+        Coordinates updatedCoordinates = Coordinates.parse("org.postgresql:postgresql:42.7.3");
+        installLibraryArtifact(initialCoordinates, List.of(
+                "org/postgresql/Driver.class",
+                "org/postgresql/ds/PGSimpleDataSource.class"
+        ));
+        installLibraryArtifact(updatedCoordinates, List.of(
+                "org/postgresql/jdbc/PgConnection.class",
+                "org/postgresql/util/PGobject.class"
+        ));
+        Project project = createProject();
 
-        ScaffoldTask initialTask = project.getTasks().register("scaffoldInitial", ScaffoldTask.class).get();
-        initialTask.setCoordinates("com.example:demo:1.0.0");
+        ScaffoldTask initialTask = registerScaffoldTask(project, "scaffoldInitial", initialCoordinates);
         initialTask.run();
 
-        Coordinates updatedCoordinates = Coordinates.parse("com.example:demo:2.0.0");
-        ScaffoldTask updateTask = project.getTasks().register("scaffoldUpdate", ScaffoldTask.class).get();
-        updateTask.setCoordinates(updatedCoordinates.toString());
+        ScaffoldTask updateTask = registerScaffoldTask(project, "scaffoldUpdate", updatedCoordinates);
         updateTask.setUpdate(true);
 
         updateTask.run();
 
         assertGeneratedFileMatchesTemplate(
                 updatedCoordinates,
-                "metadata/com.example/demo/2.0.0/reachability-metadata.json",
+                "metadata/org.postgresql/postgresql/42.7.3/reachability-metadata.json",
                 "/scaffold/reachability-metadata.json.template"
         );
         assertGeneratedFileMatchesTemplate(
                 updatedCoordinates,
-                "tests/src/com.example/demo/2.0.0/build.gradle",
+                "tests/src/org.postgresql/postgresql/42.7.3/build.gradle",
                 "/scaffold/build.gradle.template"
         );
         assertGeneratedFileMatchesTemplate(
                 updatedCoordinates,
-                "tests/src/com.example/demo/2.0.0/settings.gradle",
+                "tests/src/org.postgresql/postgresql/42.7.3/settings.gradle",
                 "/scaffold/settings.gradle.template"
         );
         assertGeneratedFileMatchesTemplate(
                 updatedCoordinates,
-                "tests/src/com.example/demo/2.0.0/gradle.properties",
+                "tests/src/org.postgresql/postgresql/42.7.3/gradle.properties",
                 "/scaffold/gradle.properties.template"
         );
         assertGeneratedFileMatchesTemplate(
                 updatedCoordinates,
-                "tests/src/com.example/demo/2.0.0/.gitignore",
+                "tests/src/org.postgresql/postgresql/42.7.3/.gitignore",
                 "/scaffold/.gitignore.template"
         );
         assertGeneratedFileMatchesTemplate(
                 updatedCoordinates,
-                "tests/src/com.example/demo/2.0.0/src/test/java/com_example/demo/DemoTest.java",
+                "tests/src/org.postgresql/postgresql/42.7.3/src/test/java/org_postgresql/postgresql/PostgresqlTest.java",
                 "/scaffold/Test.java.template"
+        );
+        assertGeneratedUserCodeFilter(
+                "tests/src/org.postgresql/postgresql/42.7.3/user-code-filter.json",
+                List.of("org.postgresql")
         );
 
         List<Map<String, Object>> indexEntries = OBJECT_MAPPER.readValue(
-                tempDir.resolve("metadata/com.example/demo/index.json").toFile(),
+                tempDir.resolve("metadata/org.postgresql/postgresql/index.json").toFile(),
                 new TypeReference<>() {}
         );
         assertThat(indexEntries).hasSize(2);
-        assertThat(indexEntries.get(0)).containsEntry("metadata-version", "1.0.0")
-                .containsEntry("tested-versions", List.of("1.0.0"))
-                .containsEntry("allowed-packages", List.of("com.example"))
+        assertThat(indexEntries.get(0)).containsEntry("metadata-version", "42.7.2")
+                .containsEntry("tested-versions", List.of("42.7.2"))
+                .containsEntry("allowed-packages", List.of("org.postgresql"))
                 .doesNotContainKey("latest");
-        assertThat(indexEntries.get(1)).containsEntry("metadata-version", "2.0.0")
-                .containsEntry("tested-versions", List.of("2.0.0"))
-                .containsEntry("allowed-packages", List.of("com.example"))
+        assertThat(indexEntries.get(1)).containsEntry("metadata-version", "42.7.3")
+                .containsEntry("tested-versions", List.of("42.7.3"))
+                .containsEntry("allowed-packages", List.of("org.postgresql"))
                 .containsEntry("latest", true);
     }
 
     @Test
     void runWithoutUpdateAddsNewVersionWhenArtifactMetadataAlreadyExists() throws IOException {
-        Project project = ProjectBuilder.builder()
-                .withProjectDir(tempDir.toFile())
-                .build();
+        Coordinates initialCoordinates = Coordinates.parse("org.postgresql:postgresql:42.7.2");
+        Coordinates secondCoordinates = Coordinates.parse("org.postgresql:postgresql:42.7.3");
+        installLibraryArtifact(initialCoordinates, List.of(
+                "org/postgresql/Driver.class",
+                "org/postgresql/util/PGobject.class"
+        ));
+        installLibraryArtifact(secondCoordinates, List.of(
+                "org/postgresql/jdbc/PgConnection.class",
+                "org/postgresql/util/PGobject.class"
+        ));
+        Project project = createProject();
 
-        ScaffoldTask initialTask = project.getTasks().register("scaffoldInitial", ScaffoldTask.class).get();
-        initialTask.setCoordinates("com.example:demo:1.0.0");
+        ScaffoldTask initialTask = registerScaffoldTask(project, "scaffoldInitial", initialCoordinates);
         initialTask.run();
 
-        ScaffoldTask secondTask = project.getTasks().register("scaffoldSecond", ScaffoldTask.class).get();
-        secondTask.setCoordinates("com.example:demo:2.0.0");
+        ScaffoldTask secondTask = registerScaffoldTask(project, "scaffoldSecond", secondCoordinates);
         secondTask.run();
 
         List<Map<String, Object>> indexEntries = OBJECT_MAPPER.readValue(
-                tempDir.resolve("metadata/com.example/demo/index.json").toFile(),
+                tempDir.resolve("metadata/org.postgresql/postgresql/index.json").toFile(),
                 new TypeReference<>() {}
         );
         assertThat(indexEntries).hasSize(2);
-        assertThat(indexEntries.get(0)).containsEntry("metadata-version", "1.0.0")
-                .containsEntry("tested-versions", List.of("1.0.0"))
+        assertThat(indexEntries.get(0)).containsEntry("metadata-version", "42.7.2")
+                .containsEntry("tested-versions", List.of("42.7.2"))
+                .containsEntry("allowed-packages", List.of("org.postgresql"))
                 .doesNotContainKey("latest");
-        assertThat(indexEntries.get(1)).containsEntry("metadata-version", "2.0.0")
-                .containsEntry("tested-versions", List.of("2.0.0"))
+        assertThat(indexEntries.get(1)).containsEntry("metadata-version", "42.7.3")
+                .containsEntry("tested-versions", List.of("42.7.3"))
+                .containsEntry("allowed-packages", List.of("org.postgresql"))
                 .containsEntry("latest", true);
-        assertThat(tempDir.resolve("tests/src/com.example/demo/2.0.0/build.gradle")).exists();
-        assertThat(tempDir.resolve("metadata/com.example/demo/2.0.0/reachability-metadata.json")).exists();
-        assertThat(Files.readString(tempDir.resolve("metadata/com.example/demo/index.json"), StandardCharsets.UTF_8))
+        assertThat(tempDir.resolve("tests/src/org.postgresql/postgresql/42.7.3/build.gradle")).exists();
+        assertThat(tempDir.resolve("metadata/org.postgresql/postgresql/42.7.3/reachability-metadata.json")).exists();
+        assertThat(Files.readString(tempDir.resolve("metadata/org.postgresql/postgresql/index.json"), StandardCharsets.UTF_8))
                 .startsWith("[\n  {\n")
                 .contains("\n  },\n  {\n")
                 .doesNotContain("[ {");
@@ -223,51 +250,82 @@ class ScaffoldTaskTests {
 
     @Test
     void runWithoutUpdateKeepsLatestOnHighestVersion() throws IOException {
-        Project project = ProjectBuilder.builder()
-                .withProjectDir(tempDir.toFile())
-                .build();
+        Coordinates highestCoordinates = Coordinates.parse("org.postgresql:postgresql:42.7.3");
+        Coordinates lowerCoordinates = Coordinates.parse("org.postgresql:postgresql:42.7.2");
+        installLibraryArtifact(highestCoordinates, List.of(
+                "org/postgresql/jdbc/PgConnection.class",
+                "org/postgresql/util/PGobject.class"
+        ));
+        installLibraryArtifact(lowerCoordinates, List.of(
+                "org/postgresql/Driver.class",
+                "org/postgresql/util/PGobject.class"
+        ));
+        Project project = createProject();
 
-        ScaffoldTask initialTask = project.getTasks().register("scaffoldInitial", ScaffoldTask.class).get();
-        initialTask.setCoordinates("com.example:demo:2.0.0");
+        ScaffoldTask initialTask = registerScaffoldTask(project, "scaffoldInitial", highestCoordinates);
         initialTask.run();
 
-        ScaffoldTask secondTask = project.getTasks().register("scaffoldSecond", ScaffoldTask.class).get();
-        secondTask.setCoordinates("com.example:demo:1.5.0");
+        ScaffoldTask secondTask = registerScaffoldTask(project, "scaffoldSecond", lowerCoordinates);
         secondTask.run();
 
         List<Map<String, Object>> indexEntries = OBJECT_MAPPER.readValue(
-                tempDir.resolve("metadata/com.example/demo/index.json").toFile(),
+                tempDir.resolve("metadata/org.postgresql/postgresql/index.json").toFile(),
                 new TypeReference<>() {}
         );
         assertThat(indexEntries).hasSize(2);
-        assertThat(indexEntries.get(0)).containsEntry("metadata-version", "1.5.0")
+        assertThat(indexEntries.get(0)).containsEntry("metadata-version", "42.7.2")
+                .containsEntry("allowed-packages", List.of("org.postgresql"))
                 .doesNotContainKey("latest");
-        assertThat(indexEntries.get(1)).containsEntry("metadata-version", "2.0.0")
+        assertThat(indexEntries.get(1)).containsEntry("metadata-version", "42.7.3")
+                .containsEntry("allowed-packages", List.of("org.postgresql"))
                 .containsEntry("latest", true);
     }
 
     @Test
     void runWithoutForceFailsWhenExactVersionMetadataAlreadyExists() throws IOException {
-        Project project = ProjectBuilder.builder()
-                .withProjectDir(tempDir.toFile())
-                .build();
+        Coordinates coordinates = Coordinates.parse("org.postgresql:postgresql:42.7.3");
+        installLibraryArtifact(coordinates, List.of("org/postgresql/Driver.class"));
+        Project project = createProject();
 
-        ScaffoldTask initialTask = project.getTasks().register("scaffoldInitial", ScaffoldTask.class).get();
-        initialTask.setCoordinates("com.example:demo:1.0.0");
+        ScaffoldTask initialTask = registerScaffoldTask(project, "scaffoldInitial", coordinates);
         initialTask.run();
 
-        ScaffoldTask secondTask = project.getTasks().register("scaffoldSecond", ScaffoldTask.class).get();
-        secondTask.setCoordinates("com.example:demo:1.0.0");
+        ScaffoldTask secondTask = registerScaffoldTask(project, "scaffoldSecond", coordinates);
 
         assertThatThrownBy(secondTask::run)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Metadata for 'com.example:demo:1.0.0' already exists");
+                .hasMessageContaining("Metadata for 'org.postgresql:postgresql:42.7.3' already exists");
     }
 
     private void assertGeneratedFileMatchesTemplate(Coordinates coordinates, String relativePath, String templateResourcePath) throws IOException {
         String expectedContent = CoordinateUtils.replace(loadResource(templateResourcePath), coordinates);
         String actualContent = Files.readString(tempDir.resolve(relativePath), StandardCharsets.UTF_8);
         assertThat(actualContent).isEqualTo(expectedContent);
+    }
+
+    private void assertGeneratedMetadataIndex(String relativePath, List<String> allowedPackages, List<String> testedVersions) throws IOException {
+        List<Map<String, Object>> indexEntries = OBJECT_MAPPER.readValue(
+                tempDir.resolve(relativePath).toFile(),
+                new TypeReference<>() {}
+        );
+        assertThat(indexEntries).hasSize(1);
+        assertThat(indexEntries.get(0))
+                .containsEntry("allowed-packages", allowedPackages)
+                .containsEntry("tested-versions", testedVersions)
+                .containsEntry("latest", true);
+    }
+
+    private void assertGeneratedUserCodeFilter(String relativePath, List<String> packageRoots) throws IOException {
+        Map<String, List<Map<String, String>>> userCodeFilter = OBJECT_MAPPER.readValue(
+                tempDir.resolve(relativePath).toFile(),
+                new TypeReference<>() {}
+        );
+        List<Map<String, String>> expectedRules = new ArrayList<>();
+        expectedRules.add(Map.of("excludeClasses", "**"));
+        for (String packageRoot : packageRoots) {
+            expectedRules.add(Map.of("includeClasses", packageRoot + ".**"));
+        }
+        assertThat(userCodeFilter).containsEntry("rules", expectedRules);
     }
 
     private void assertGeneratedReachabilityMetadataIsEmptyJsonObject(String relativePath) throws IOException {
@@ -304,5 +362,61 @@ class ScaffoldTaskTests {
             assertThat(stream).isNotNull();
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    private Project createProject() throws IOException {
+        Project project = ProjectBuilder.builder()
+                .withProjectDir(tempDir.toFile())
+                .build();
+        Path repositoryRoot = ensureRepositoryRoot();
+        project.getRepositories().maven(repository -> repository.setUrl(repositoryRoot.toUri()));
+        return project;
+    }
+
+    private ScaffoldTask registerScaffoldTask(Project project, String taskName, Coordinates coordinates) {
+        ScaffoldTask task = project.getTasks().register(taskName, ScaffoldTask.class).get();
+        task.setCoordinates(coordinates.toString());
+        return task;
+    }
+
+    private void installLibraryArtifact(Coordinates coordinates, List<String> jarEntries) throws IOException {
+        Path artifactDirectory = ensureRepositoryRoot()
+                .resolve(coordinates.group().replace('.', '/'))
+                .resolve(coordinates.artifact())
+                .resolve(coordinates.version());
+        Files.createDirectories(artifactDirectory);
+        createLibraryJar(
+                artifactDirectory.resolve(coordinates.artifact() + "-" + coordinates.version() + ".jar"),
+                jarEntries
+        );
+        Files.writeString(
+                artifactDirectory.resolve(coordinates.artifact() + "-" + coordinates.version() + ".pom"),
+                """
+                <project xmlns="http://maven.apache.org/POM/4.0.0"
+                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>%s</groupId>
+                  <artifactId>%s</artifactId>
+                  <version>%s</version>
+                </project>
+                """.formatted(coordinates.group(), coordinates.artifact(), coordinates.version()),
+                StandardCharsets.UTF_8
+        );
+    }
+
+    private Path createLibraryJar(Path jarPath, List<String> entries) throws IOException {
+        try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(jarPath))) {
+            for (String entry : entries) {
+                jarOutputStream.putNextEntry(new JarEntry(entry));
+                jarOutputStream.write(new byte[]{0});
+                jarOutputStream.closeEntry();
+            }
+        }
+        return jarPath;
+    }
+
+    private Path ensureRepositoryRoot() throws IOException {
+        return Files.createDirectories(tempDir.resolve("test-maven-repo"));
     }
 }
