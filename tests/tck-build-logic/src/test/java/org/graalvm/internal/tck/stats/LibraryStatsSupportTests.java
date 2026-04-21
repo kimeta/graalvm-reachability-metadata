@@ -141,6 +141,26 @@ class LibraryStatsSupportTests {
     }
 
     @Test
+    void buildVersionStatsTreatsLibrariesWithoutClassFilesAsEmptyDynamicAccess() throws IOException {
+        Path libraryJar = createLibraryJar(tempDir.resolve("demo.jar"), List.of("META-INF/MANIFEST.MF"));
+
+        LibraryStatsModels.VersionStats versionStats = LibraryStatsSupport.buildVersionStats(
+                "com.example:demo:1.0.0",
+                List.of(libraryJar),
+                tempDir.resolve("dynamic-access-missing"),
+                tempDir.resolve("jacoco-missing.xml")
+        );
+
+        assertThat(versionStats.dynamicAccess().totalCalls()).isZero();
+        assertThat(versionStats.dynamicAccess().coveredCalls()).isZero();
+        assertThat(versionStats.dynamicAccess().breakdown()).isEmpty();
+        assertThat(versionStats.dynamicAccess().coverageRatio()).isEqualByComparingTo("1.0");
+        assertThat(versionStats.libraryCoverage().line().isAvailable()).isFalse();
+        assertThat(versionStats.libraryCoverage().instruction().isAvailable()).isFalse();
+        assertThat(versionStats.libraryCoverage().method().isAvailable()).isFalse();
+    }
+
+    @Test
     void buildVersionStatsWithoutDynamicAccessPreservesCoverageAndMarksDynamicAccessAsUnavailable() throws IOException {
         Path jacocoReport = tempDir.resolve("jacoco.xml");
         Files.writeString(
@@ -387,6 +407,24 @@ class LibraryStatsSupportTests {
         assertThat(report.hasDynamicAccess()).isFalse();
         assertThat(report.totals().totalCalls()).isEqualTo(0);
         assertThat(report.totals().coveredCalls()).isEqualTo(0);
+        assertThat(report.classes()).isEmpty();
+    }
+
+    @Test
+    void buildDynamicAccessCoverageReportAllowsLibrariesWithoutClassFiles() throws IOException {
+        Path libraryJar = createLibraryJar(tempDir.resolve("demo.jar"), List.of("META-INF/MANIFEST.MF"));
+
+        LibraryStatsModels.DynamicAccessCoverageReport report = LibraryStatsSupport.buildDynamicAccessCoverageReport(
+                "com.example:demo:1.0.0",
+                List.of(libraryJar),
+                tempDir.resolve("dynamic-access-missing"),
+                tempDir.resolve("jacoco-missing.xml")
+        );
+
+        assertThat(report.coordinate()).isEqualTo("com.example:demo:1.0.0");
+        assertThat(report.hasDynamicAccess()).isFalse();
+        assertThat(report.totals().totalCalls()).isZero();
+        assertThat(report.totals().coveredCalls()).isZero();
         assertThat(report.classes()).isEmpty();
     }
 

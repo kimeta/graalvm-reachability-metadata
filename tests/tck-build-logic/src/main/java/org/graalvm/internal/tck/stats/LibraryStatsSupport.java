@@ -237,6 +237,13 @@ public final class LibraryStatsSupport {
             Path jacocoReport
     ) {
         Set<String> libraryClasses = loadLibraryClasses(libraryJars);
+        if (libraryClasses.isEmpty()) {
+            return new LibraryStatsModels.VersionStats(
+                    versionFromCoordinate(coordinate),
+                    LibraryStatsModels.DynamicAccessStatsValue.available(emptyDynamicAccessStats()),
+                    unavailableLibraryCoverage()
+            );
+        }
         ParsedJacocoReport parsedJacocoReport = parseJacocoReport(jacocoReport);
         ParsedDynamicAccess parsedDynamicAccess = parseDynamicAccessReports(dynamicAccessDir, libraryClasses, parsedJacocoReport.coveredLinesBySource());
         return versionStats(
@@ -260,6 +267,9 @@ public final class LibraryStatsSupport {
 
     public static ExternalDynamicAccessSummary buildExternalDynamicAccessSummary(List<Path> libraryJars, Path dynamicAccessDir) {
         Set<String> libraryClasses = loadLibraryClasses(libraryJars);
+        if (libraryClasses.isEmpty()) {
+            return new ExternalDynamicAccessSummary(0L, Map.of());
+        }
         ParsedDynamicAccess parsedDynamicAccess = parseDynamicAccessReports(dynamicAccessDir, libraryClasses, Map.of());
         return new ExternalDynamicAccessSummary(
                 parsedDynamicAccess.dynamicAccessStats().totalCalls(),
@@ -274,6 +284,14 @@ public final class LibraryStatsSupport {
             Path jacocoReport
     ) {
         Set<String> libraryClasses = loadLibraryClasses(libraryJars);
+        if (libraryClasses.isEmpty()) {
+            return new LibraryStatsModels.DynamicAccessCoverageReport(
+                    coordinate,
+                    false,
+                    new LibraryStatsModels.DynamicAccessCoverageTotals(0L, 0L),
+                    List.of()
+            );
+        }
         ParsedJacocoReport parsedJacocoReport = parseJacocoReport(jacocoReport);
         ParsedDynamicAccess parsedDynamicAccess = parseDynamicAccessReports(dynamicAccessDir, libraryClasses, parsedJacocoReport.coveredLinesBySource());
         return new LibraryStatsModels.DynamicAccessCoverageReport(
@@ -300,6 +318,23 @@ public final class LibraryStatsSupport {
                         parsedJacocoReport.instruction(),
                         parsedJacocoReport.method()
                 )
+        );
+    }
+
+    public static LibraryStatsModels.DynamicAccessStats emptyDynamicAccessStats() {
+        return new LibraryStatsModels.DynamicAccessStats(
+                0L,
+                0L,
+                fullyCoveredRatio(),
+                Map.of()
+        );
+    }
+
+    public static LibraryStatsModels.LibraryCoverage unavailableLibraryCoverage() {
+        return new LibraryStatsModels.LibraryCoverage(
+                LibraryStatsModels.CoverageMetricValue.notAvailable(),
+                LibraryStatsModels.CoverageMetricValue.notAvailable(),
+                LibraryStatsModels.CoverageMetricValue.notAvailable()
         );
     }
 
@@ -520,9 +555,6 @@ public final class LibraryStatsSupport {
                 throw new GradleException("Failed to read library JAR " + jarPath, e);
             }
         }
-        if (classes.isEmpty()) {
-            throw new GradleException("No class files were found in resolved library JARs: " + libraryJars);
-        }
         return classes;
     }
 
@@ -600,7 +632,7 @@ public final class LibraryStatsSupport {
 
     private static ParsedDynamicAccess emptyDynamicAccess() {
         return new ParsedDynamicAccess(
-                new LibraryStatsModels.DynamicAccessStats(0, 0, BigDecimal.ONE.setScale(RATIO_SCALE, RoundingMode.HALF_UP), Map.of()),
+                emptyDynamicAccessStats(),
                 List.of()
         );
     }

@@ -209,20 +209,17 @@ public abstract class AbstractLibraryStatsTask extends CoordinatesAwareTask {
         List<Path> libraryJars = listLibraryJars(coordinates);
 
         // When library JARs contain no bytecode (no .class files), JaCoCo has nothing
-        // to instrument and produces no report. Return N/A for every stats category.
+        // to instrument and produces no report. Keep coverage as N/A, but model
+        // dynamic access as an empty fully-covered set like other empty fallbacks.
         if (!LibraryStatsSupport.containsClassFiles(libraryJars)) {
             getLogger().warn(
-                    "Library JARs for {} contain no bytecode. Writing all stats as N/A.",
+                    "Library JARs for {} contain no bytecode. Writing empty dynamic access stats and N/A coverage.",
                     coordinates
             );
             return new LibraryStatsModels.VersionStats(
                     LibraryStatsSupport.versionFromCoordinate(coordinates),
-                    LibraryStatsModels.DynamicAccessStatsValue.notAvailable(),
-                    new LibraryStatsModels.LibraryCoverage(
-                            LibraryStatsModels.CoverageMetricValue.notAvailable(),
-                            LibraryStatsModels.CoverageMetricValue.notAvailable(),
-                            LibraryStatsModels.CoverageMetricValue.notAvailable()
-                    )
+                    LibraryStatsModels.DynamicAccessStatsValue.available(LibraryStatsSupport.emptyDynamicAccessStats()),
+                    LibraryStatsSupport.unavailableLibraryCoverage()
             );
         }
 
