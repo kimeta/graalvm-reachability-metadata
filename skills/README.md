@@ -26,6 +26,11 @@ It covers new-library metadata PRs, including titles like `[GenAI] Add support f
 Reviews pull requests with the `fixes-javac-fail` label.
 It covers compile-failure repair PRs for existing libraries and applies a lighter review than `library-new-request`: keep the diff scoped to the compile fix, preserve meaningful tests, and block regressions where dynamic-access coverage drops between the previously tested version and the new version.
 
+### `review-fixes-java-run-fail`
+
+Reviews pull requests with the `fixes-java-run-fail` label.
+It covers JVM runtime-failure repair PRs for existing libraries and applies a lighter review than `library-new-request`: keep the diff scoped to the Java runtime fix, preserve meaningful tests and assertions, and block regressions where dynamic-access coverage drops between the previously tested version and the new version.
+
 ### `review-fixes-native-image-run-fail`
 
 Reviews pull requests with the `fixes-native-image-run-fail` label.
