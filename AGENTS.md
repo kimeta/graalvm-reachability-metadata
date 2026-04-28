@@ -14,8 +14,9 @@
 ## One command for complete infrastructure testing
 ./gradlew testAllInfra -Pparallelism=4 --stacktrace
 
-Run the future-defaults lane locally with:
-GVM_TCK_NATIVE_IMAGE_MODE=future-defaults-all ./gradlew testAllInfra -Pparallelism=4 --stacktrace
+## Future-defaults testing
+- Do not run `future-defaults-all` by default on regular released GraalVM/JDK versions.
+- Run the future-defaults lane only when explicitly validating against an early-access or latest GraalVM build, including versions named `ea`, `dev`, or `latest`.
 
 ## Code Style
 - Always try to reuse existing code.
@@ -47,13 +48,11 @@ GVM_TCK_NATIVE_IMAGE_MODE=future-defaults-all ./gradlew testAllInfra -Pparalleli
   - ./gradlew pullAllowedDockerImages -Pcoordinates=group:artifact:version
   - ./gradlew checkMetadataFiles -Pcoordinates=group:artifact:version
   - ./gradlew test -Pcoordinates=group:artifact:version
-  - GVM_TCK_NATIVE_IMAGE_MODE=future-defaults-all ./gradlew test -Pcoordinates=group:artifact:version
+  - If using an early-access/latest GraalVM build, also run: GVM_TCK_NATIVE_IMAGE_MODE=future-defaults-all ./gradlew test -Pcoordinates=group:artifact:version
 - Sharded example (1/64):
   - ./gradlew pullAllowedDockerImages -Pcoordinates=1/64
   - ./gradlew checkMetadataFiles -Pcoordinates=1/64
   - ./gradlew test -Pcoordinates=1/64
-
-Metadata CI currently runs both `current-defaults` and `future-defaults-all`.
 
 ### Generating Metadata
 - Generate metadata for a certain library version:
