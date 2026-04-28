@@ -1,15 +1,31 @@
 [
   {
-    "latest": true,
-    "allowed-packages": [ "com.google.auto.value" ],
-    "metadata-version": "1.9",
-    "tested-versions": [
+    "latest" : true,
+    "metadata-version" : "1.10",
+    "source-code-url" : "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.10/auto-value-annotations-1.10-sources.jar",
+    "repository-url" : "https://github.com/google/auto",
+    "test-code-url" : "https://github.com/google/auto/tree/auto-value-1.10/value/src/test/java",
+    "documentation-url" : "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.10/auto-value-annotations-1.10-javadoc.jar",
+    "description" : "AutoValue Annotations provides the annotation types used to mark immutable value classes and AutoValue extension points in Java. It lets consumers reference those annotations without depending on the AutoValue processor artifact itself.",
+    "tested-versions" : [
+      "1.10"
+    ],
+    "allowed-packages" : [
+      "com.google.auto.value"
+    ]
+  },
+  {
+    "metadata-version" : "1.9",
+    "source-code-url" : "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.9/auto-value-annotations-1.9-sources.jar",
+    "repository-url" : "https://github.com/google/auto",
+    "test-code-url" : "https://github.com/google/auto/tree/auto-value-1.9/value/src/test/java",
+    "documentation-url" : "https://javadoc.io/doc/com.google.auto.value/auto-value-annotations/1.9/index.html",
+    "description" : "AutoValue Annotations provides the annotation types used to declare immutable value types and related extensions in Java. It is the annotation artifact of Google AutoValue, enabling code generation integrations without requiring the processor at runtime.",
+    "tested-versions" : [
       "1.9"
     ],
-    "source-code-url": "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.9/auto-value-annotations-1.9-sources.jar",
-    "repository-url": "https://github.com/google/auto",
-    "test-code-url": "https://github.com/google/auto/tree/auto-value-1.9/value/src/test/java",
-    "documentation-url": "https://javadoc.io/doc/com.google.auto.value/auto-value-annotations/1.9/index.html",
-    "description": "AutoValue Annotations provides the annotation types used to declare immutable value types and related extensions in Java. It is the annotation artifact of Google AutoValue, enabling code generation integrations without requiring the processor at runtime."
+    "allowed-packages" : [
+      "com.google.auto.value"
+    ]
   }
 ]
