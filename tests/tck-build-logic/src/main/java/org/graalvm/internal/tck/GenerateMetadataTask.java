@@ -83,6 +83,9 @@ public abstract class GenerateMetadataTask extends DefaultTask {
             MetadataGenerationUtils.addAgentConfigBlock(testsDirectory);
         }
         MetadataGenerationUtils.collectMetadata(getExecOperations(), testsDirectory, getLayout(), coordinates, gradlewPath);
+        if (isFromJarAllowedPackages()) {
+            MetadataGenerationUtils.setAllowedPackagesInIndexJson(getLayout(), coordinatesValue, packageList);
+        }
     }
 
     private List<String> resolveAllowedPackages(Coordinates coordinatesValue) throws IOException {
@@ -103,5 +106,9 @@ public abstract class GenerateMetadataTask extends DefaultTask {
             throw new IllegalArgumentException("--agentAllowedPackages=fromJar must be used on its own");
         }
         return packageList;
+    }
+
+    private boolean isFromJarAllowedPackages() {
+        return agentAllowedPackages != null && agentAllowedPackages.trim().equals(FROM_JAR);
     }
 }
