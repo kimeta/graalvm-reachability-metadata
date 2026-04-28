@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -144,7 +145,7 @@ public final class MetadataGenerationUtils {
      * Runs Gradle tasks to generate metadata using the agent and then copies
      * the results into the computed metadata directory for the given coordinates.
      */
-    public static void collectMetadata(ExecOperations execOps, Path testsDirectory, ProjectLayout layout,  String coordinates, Path gradlew) {
+    public static void collectMetadata(ExecOperations execOps, Path testsDirectory, ProjectLayout layout, String coordinates, Path gradlew) {
         Path metadataDirectory = GeneralUtils.computeMetadataDirectory(layout, coordinates);
 
         GeneralUtils.printInfo("Generating metadata");
@@ -168,6 +169,62 @@ public final class MetadataGenerationUtils {
 
         GeneralUtils.printInfo("Performing metadata copy");
         GeneralUtils.invokeCommand(execOps, gradlew.toString(), List.of("metadataCopy", "--task", "test", "--dir", metadataDirectory.toString()), env, "Cannot perform metadata copy", testsDirectory);
+    }
+
+    /**
+     * Sets packages on the matching index.json entry.
+     */
+    public static void setAllowedPackagesInIndexJson(ProjectLayout layout, Coordinates coordinates, List<String> packages) throws IOException {
+        if (packages.isEmpty()) {
+            return;
+        }
+
+        Path indexFile = GeneralUtils.getPathFromProject(
+                layout,
+                CoordinateUtils.replace("metadata/$group$/$artifact$/index.json", coordinates)
+        );
+        if (!Files.isRegularFile(indexFile)) {
+            return;
+        }
+
+        List<Map<String, Object>> entries = objectMapper.readValue(indexFile.toFile(), new TypeReference<>() {});
+        boolean updated = false;
+        for (Map<String, Object> entry : entries) {
+            if (!matchesGeneratedCoordinate(entry, coordinates)) {
+                continue;
+            }
+
+            List<String> derivedPackages = new ArrayList<>(new LinkedHashSet<>(packages));
+            if (!derivedPackages.equals(entry.get("allowed-packages"))) {
+                entry.put("allowed-packages", derivedPackages);
+                updated = true;
+            }
+        }
+
+        if (!updated) {
+            return;
+        }
+
+        DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
+        prettyPrinter.indentArraysWith(DefaultIndenter.SYSTEM_LINEFEED_INSTANCE);
+        String json = objectMapper.writer(prettyPrinter).writeValueAsString(entries);
+        if (!json.endsWith(System.lineSeparator())) {
+            json = json + System.lineSeparator();
+        }
+        Files.writeString(indexFile, json, StandardCharsets.UTF_8);
+    }
+
+    private static boolean matchesGeneratedCoordinate(Map<String, Object> entry, Coordinates coordinates) {
+        Object metadataVersion = entry.get("metadata-version");
+        if (coordinates.version().equals(metadataVersion)) {
+            return true;
+        }
+
+        Object testedVersions = entry.get("tested-versions");
+        if (testedVersions instanceof List<?> versions) {
+            return versions.contains(coordinates.version());
+        }
+        return false;
     }
 
     /**
