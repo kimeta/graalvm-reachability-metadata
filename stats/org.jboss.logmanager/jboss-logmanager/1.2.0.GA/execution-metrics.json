@@ -1,0 +1,155 @@
+{
+  "add_new_library_support:2026-04-09": {
+    "timestamp": "2026-04-09T13:28:06Z",
+    "library": "org.jboss.logmanager:jboss-logmanager:1.2.0.GA",
+    "starting_commit": "d35966a6d3ccb468dce6722e8b8667c2f8e13af0",
+    "ending_commit": "de19aac39b3dbcad8fb38f7772ea1ec69490c618",
+    "strategy_name": "dynamic_access_main_sources pi",
+    "status": "success",
+    "metrics": {
+      "input_tokens_used": 415689,
+      "cached_input_tokens_used": 4915456,
+      "output_tokens_used": 90418,
+      "iterations": 14,
+      "cost_usd": 2.5852,
+      "generated_loc": 652,
+      "tested_library_loc": 4336,
+      "metadata_entries": 60,
+      "code_coverage_percent": 24.87
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.jboss.logmanager/jboss-logmanager/1.2.0.GA/src/test/java/org/jboss/logmanager/AtomicArrayTest.java",
+      "metadata_file": "metadata/org.jboss.logmanager/jboss-logmanager/1.2.0.GA/reachability-metadata.json"
+    }
+  },
+  "add_new_library_support:2026-04-17": {
+    "timestamp": "2026-04-17T06:24:10.078496Z",
+    "library": "org.jboss.logmanager:jboss-logmanager:1.2.0.GA",
+    "starting_commit": "293ee67ac2fb1bb4df7e01fd214f85c4d6dc3aa5",
+    "ending_commit": "ffc6c450ac6a78162835c049937a65ca34300d44",
+    "strategy_name": "dynamic_access_main_sources_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success_with_intervention",
+    "stats": {
+      "version": "1.2.0.GA",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 0.9375,
+            "coveredCalls": 30,
+            "totalCalls": 32
+          },
+          "resources": {
+            "coverageRatio": 0.666667,
+            "coveredCalls": 2,
+            "totalCalls": 3
+          }
+        },
+        "coverageRatio": 0.914286,
+        "coveredCalls": 32,
+        "totalCalls": 35
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 3649,
+          "missed": 10535,
+          "ratio": 0.257262,
+          "total": 14184
+        },
+        "line": {
+          "covered": 909,
+          "missed": 2559,
+          "ratio": 0.262111,
+          "total": 3468
+        },
+        "method": {
+          "covered": 174,
+          "missed": 612,
+          "ratio": 0.221374,
+          "total": 786
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 316687,
+      "cached_input_tokens_used": 3697536,
+      "output_tokens_used": 68274,
+      "iterations": 10,
+      "cost_usd": 1.9485,
+      "generated_loc": 718,
+      "tested_library_loc": 4561,
+      "metadata_entries": 25,
+      "code_coverage_percent": 26.16
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.jboss.logmanager/jboss-logmanager/1.2.0.GA/src/test/java/org/jboss/logmanager/AtomicArrayTest.java",
+      "metadata_file": "metadata/org.jboss.logmanager/jboss-logmanager/1.2.0.GA/reachability-metadata.json"
+    }
+  },
+  "add_new_library_support:2026-04-20": {
+    "timestamp": "2026-04-20T21:51:32.219175Z",
+    "library": "org.jboss.logmanager:jboss-logmanager:1.2.0.GA",
+    "starting_commit": "32b6870b543dba3cc7fb066d84d4ef79a9dc234b",
+    "ending_commit": "384c39a55040405c319e88c0081c77f8848d7526",
+    "strategy_name": "dynamic_access_main_sources_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success_with_intervention",
+    "stats": {
+      "version": "1.2.0.GA",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 0.9375,
+            "coveredCalls": 30,
+            "totalCalls": 32
+          },
+          "resources": {
+            "coverageRatio": 1.0,
+            "coveredCalls": 3,
+            "totalCalls": 3
+          }
+        },
+        "coverageRatio": 0.942857,
+        "coveredCalls": 33,
+        "totalCalls": 35
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 3653,
+          "missed": 10531,
+          "ratio": 0.257544,
+          "total": 14184
+        },
+        "line": {
+          "covered": 903,
+          "missed": 2565,
+          "ratio": 0.260381,
+          "total": 3468
+        },
+        "method": {
+          "covered": 185,
+          "missed": 601,
+          "ratio": 0.235369,
+          "total": 786
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 453851,
+      "cached_input_tokens_used": 5017472,
+      "output_tokens_used": 76101,
+      "iterations": 16,
+      "cost_usd": 2.3959,
+      "generated_loc": 704,
+      "tested_library_loc": 903,
+      "metadata_entries": 16,
+      "code_coverage_percent": 26.04
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.jboss.logmanager/jboss-logmanager/1.2.0.GA/src/test/java/org_jboss_logmanager/jboss_logmanager/LogManagerTest.java",
+      "metadata_file": "metadata/org.jboss.logmanager/jboss-logmanager/1.2.0.GA/reachability-metadata.json"
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "add_new_library_support:2026-04-21": {
+    "timestamp": "2026-04-21T01:07:11.544163Z",
+    "library": "jline:jline:2.14.6",
+    "starting_commit": "ac04d428b9b3afcde2bfefec79c72ab59f6ffd81",
+    "ending_commit": "973f07a145bd4c6264aa42dbf9cb46020b8513b4",
+    "strategy_name": "dynamic_access_main_sources_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success_with_intervention",
+    "stats": {
+      "version": "2.14.6",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 0.909091,
+            "coveredCalls": 20,
+            "totalCalls": 22
+          },
+          "resources": {
+            "coverageRatio": 1.0,
+            "coveredCalls": 3,
+            "totalCalls": 3
+          }
+        },
+        "coverageRatio": 0.92,
+        "coveredCalls": 23,
+        "totalCalls": 25
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 16479,
+          "missed": 17104,
+          "ratio": 0.490695,
+          "total": 33583
+        },
+        "line": {
+          "covered": 1317,
+          "missed": 3980,
+          "ratio": 0.248631,
+          "total": 5297
+        },
+        "method": {
+          "covered": 214,
+          "missed": 695,
+          "ratio": 0.235424,
+          "total": 909
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 507836,
+      "cached_input_tokens_used": 6025344,
+      "output_tokens_used": 62277,
+      "iterations": 11,
+      "cost_usd": 2.4405,
+      "generated_loc": 450,
+      "tested_library_loc": 1317,
+      "metadata_entries": 15,
+      "code_coverage_percent": 24.86
+    },
+    "artifacts": {
+      "test_file": "tests/src/jline/jline/2.14.6/src/test/java/com/cloudius/util/Stty.java",
+      "metadata_file": "metadata/jline/jline/2.14.6/reachability-metadata.json"
+    }
+  }
+}

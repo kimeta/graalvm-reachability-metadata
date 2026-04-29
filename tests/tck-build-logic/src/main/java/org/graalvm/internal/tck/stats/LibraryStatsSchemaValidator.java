@@ -6,6 +6,7 @@
  */
 package org.graalvm.internal.tck.stats;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.networknt.schema.JsonSchema;
@@ -13,6 +14,7 @@ import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
 import org.gradle.api.GradleException;
+import org.graalvm.internal.tck.model.MetadataVersionsIndexEntry;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -46,6 +48,8 @@ public final class LibraryStatsSchemaValidator {
             Pattern.compile("^Missing metadata-version entry for ([^\\s]+) in .+$");
 
     private static final JsonSchemaFactory JSON_SCHEMA_FACTORY = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7);
+    private static final TypeReference<List<MetadataVersionsIndexEntry>> INDEX_ENTRIES_TYPE = new TypeReference<>() {
+    };
 
     private LibraryStatsSchemaValidator() {
     }
@@ -69,13 +73,16 @@ public final class LibraryStatsSchemaValidator {
 
     public static void validateRepositoryStatsOrThrow(Path metadataRoot, Path statsRoot, Path schemaFile) {
         JsonSchema schema;
+        JsonSchema runMetricsSchema;
         try {
             schema = JSON_SCHEMA_FACTORY.getSchema(schemaFile.toUri());
+            runMetricsSchema = JSON_SCHEMA_FACTORY.getSchema(statsRoot.resolve("schemas").resolve("run_metrics_output_schema.json").toUri());
         } catch (Exception e) {
             throw new GradleException("Failed to load library stats schema from " + schemaFile, e);
         }
 
         Map<StatsLocation, Path> expectedStatsFiles = collectExpectedStatsFiles(metadataRoot, statsRoot);
+        Map<String, Set<String>> testedVersionsByArtifact = collectTestedVersionsByArtifact(metadataRoot);
         Map<StatsLocation, Path> actualStatsFiles = new TreeMap<>(Comparator.comparing(StatsLocation::sortKey));
         List<String> failures = new ArrayList<>();
 
@@ -84,7 +91,13 @@ public final class LibraryStatsSchemaValidator {
                 files.filter(Files::isRegularFile)
                         .sorted(Comparator.comparing(path -> path.toAbsolutePath().toString()))
                         .forEach(file -> {
-                            StatsLocation location = validateStatsPath(file, statsRoot, failures);
+                            StatsLocation location = validateStatsPath(
+                                    file,
+                                    statsRoot,
+                                    runMetricsSchema,
+                                    testedVersionsByArtifact,
+                                    failures
+                            );
                             if (location == null) {
                                 return;
                             }
@@ -147,6 +160,8 @@ public final class LibraryStatsSchemaValidator {
     private static StatsLocation validateStatsPath(
             Path file,
             Path statsRoot,
+            JsonSchema runMetricsSchema,
+            Map<String, Set<String>> testedVersionsByArtifact,
             List<String> failures
     ) {
         Path relative = statsRoot.relativize(file);
@@ -155,6 +170,11 @@ public final class LibraryStatsSchemaValidator {
         }
 
         if (!file.getFileName().toString().endsWith(".json")) {
+            return null;
+        }
+
+        if (isExecutionMetricsFile(relative)) {
+            validateExecutionMetricsFile(file, relative, runMetricsSchema, testedVersionsByArtifact, failures);
             return null;
         }
 
@@ -167,12 +187,129 @@ public final class LibraryStatsSchemaValidator {
         }
 
         failures.add("Unexpected JSON file under stats root: " + file
-                + " (expected stats/<groupId>/<artifactId>/<metadataVersion>/stats.json or stats/schemas/*.json)");
+                + " (expected stats/<groupId>/<artifactId>/<metadataVersion>/stats.json, "
+                + "stats/<groupId>/<artifactId>/<metadataVersion>/execution-metrics.json, or stats/schemas/*.json)");
         return null;
     }
 
     private static boolean isSchemaFile(Path relativePath) {
         return relativePath.getNameCount() >= 2 && "schemas".equals(relativePath.getName(0).toString());
+    }
+
+    private static boolean isExecutionMetricsFile(Path relativePath) {
+        return relativePath.getNameCount() == 4
+                && "execution-metrics.json".equals(relativePath.getName(3).toString());
+    }
+
+    private static void validateExecutionMetricsFile(
+            Path file,
+            Path relativePath,
+            JsonSchema runMetricsSchema,
+            Map<String, Set<String>> testedVersionsByArtifact,
+            List<String> failures
+    ) {
+        validateAgainstSchema(file, runMetricsSchema, failures);
+        try {
+            JsonNode json = OBJECT_MAPPER.readTree(file.toFile());
+            if (!json.isObject()) {
+                failures.add("Execution metrics file must be an object keyed by <task-type>:<date>: " + file);
+                return;
+            }
+
+            String expectedLibrary = relativePath.getName(0) + ":" + relativePath.getName(1) + ":" + relativePath.getName(2);
+            json.fields().forEachRemaining(entry -> {
+                JsonNode libraryNode = entry.getValue().get("library");
+                if (libraryNode == null || !expectedLibrary.equals(libraryNode.asText())) {
+                    failures.add("Execution metrics library mismatch in " + file + " at key " + entry.getKey()
+                            + ": expected " + expectedLibrary);
+                    return;
+                }
+                validateMetricCoordinateExists(
+                        file,
+                        entry.getKey(),
+                        "library",
+                        libraryNode.asText(),
+                        testedVersionsByArtifact,
+                        failures
+                );
+                validateStatsVersionMatchesLibrary(file, entry.getKey(), entry.getValue(), libraryNode.asText(), "stats", failures);
+
+                JsonNode previousLibraryNode = entry.getValue().get("previous_library");
+                if (previousLibraryNode != null && previousLibraryNode.isTextual()) {
+                    validateMetricCoordinateExists(
+                            file,
+                            entry.getKey(),
+                            "previous_library",
+                            previousLibraryNode.asText(),
+                            testedVersionsByArtifact,
+                            failures
+                    );
+                    validateStatsVersionMatchesLibrary(
+                            file,
+                            entry.getKey(),
+                            entry.getValue(),
+                            previousLibraryNode.asText(),
+                            "previous_library_stats",
+                            failures
+                    );
+                }
+            });
+        } catch (IOException e) {
+            failures.add("Failed to parse execution metrics JSON file " + file + ": " + e.getMessage());
+        }
+    }
+
+    private static void validateMetricCoordinateExists(
+            Path file,
+            String entryKey,
+            String fieldName,
+            String coordinate,
+            Map<String, Set<String>> testedVersionsByArtifact,
+            List<String> failures
+    ) {
+        MavenCoordinate parsed = MavenCoordinate.parse(coordinate);
+        if (parsed == null) {
+            failures.add("Invalid execution metrics " + fieldName + " coordinate in " + file
+                    + " at key " + entryKey + ": " + coordinate);
+            return;
+        }
+
+        Set<String> testedVersions = testedVersionsByArtifact.get(parsed.artifactCoordinate());
+        if (testedVersions == null) {
+            failures.add("Execution metrics " + fieldName + " has no matching metadata index in " + file
+                    + " at key " + entryKey + ": " + coordinate);
+            return;
+        }
+
+        if (!testedVersions.contains(parsed.version())) {
+            failures.add("Execution metrics " + fieldName + " version is not listed in metadata index tested-versions in "
+                    + file + " at key " + entryKey + ": " + coordinate);
+        }
+    }
+
+    private static void validateStatsVersionMatchesLibrary(
+            Path file,
+            String entryKey,
+            JsonNode runMetrics,
+            String coordinate,
+            String statsFieldName,
+            List<String> failures
+    ) {
+        MavenCoordinate parsed = MavenCoordinate.parse(coordinate);
+        if (parsed == null) {
+            return;
+        }
+
+        JsonNode stats = runMetrics.get(statsFieldName);
+        if (stats == null || !stats.isObject()) {
+            return;
+        }
+        JsonNode version = stats.get("version");
+        if (version != null && version.isTextual() && !parsed.version().equals(version.asText())) {
+            failures.add("Execution metrics " + statsFieldName + ".version mismatch in " + file
+                    + " at key " + entryKey + ": expected " + parsed.version()
+                    + " from " + coordinate + " but found " + version.asText());
+        }
     }
 
     private static Map<StatsLocation, Path> collectExpectedStatsFiles(Path metadataRoot, Path statsRoot) {
@@ -220,6 +357,44 @@ public final class LibraryStatsSchemaValidator {
         }
 
         return expected;
+    }
+
+    private static Map<String, Set<String>> collectTestedVersionsByArtifact(Path metadataRoot) {
+        Map<String, Set<String>> testedVersionsByArtifact = new TreeMap<>();
+        if (!Files.isDirectory(metadataRoot)) {
+            return testedVersionsByArtifact;
+        }
+
+        try (Stream<Path> indexFiles = Files.find(metadataRoot, 3, (path, attrs) -> {
+            if (!attrs.isRegularFile()) {
+                return false;
+            }
+            Path relative = metadataRoot.relativize(path);
+            return relative.getNameCount() == 3 && "index.json".equals(relative.getName(2).toString());
+        })) {
+            for (Path indexFile : indexFiles.sorted().toList()) {
+                Path relative = metadataRoot.relativize(indexFile);
+                String artifactCoordinate = relative.getName(0) + ":" + relative.getName(1);
+                Set<String> testedVersions = testedVersionsByArtifact.computeIfAbsent(
+                        artifactCoordinate,
+                        ignored -> new TreeSet<>()
+                );
+                try {
+                    List<MetadataVersionsIndexEntry> entries = OBJECT_MAPPER.readValue(indexFile.toFile(), INDEX_ENTRIES_TYPE);
+                    for (MetadataVersionsIndexEntry entry : entries) {
+                        if (entry != null && entry.testedVersions() != null) {
+                            testedVersions.addAll(entry.testedVersions());
+                        }
+                    }
+                } catch (IOException e) {
+                    throw new GradleException("Failed to read metadata index file " + indexFile, e);
+                }
+            }
+        } catch (IOException e) {
+            throw new GradleException("Failed to traverse metadata root " + metadataRoot, e);
+        }
+
+        return testedVersionsByArtifact;
     }
 
     private static void validateMetadataVersionEntry(
@@ -380,6 +555,27 @@ public final class LibraryStatsSchemaValidator {
 
         private String sortKey() {
             return coordinate();
+        }
+    }
+
+    private record MavenCoordinate(
+            String groupId,
+            String artifactId,
+            String version
+    ) {
+        private static MavenCoordinate parse(String coordinate) {
+            if (coordinate == null) {
+                return null;
+            }
+            String[] parts = coordinate.split(":", -1);
+            if (parts.length != 3 || parts[0].isBlank() || parts[1].isBlank() || parts[2].isBlank()) {
+                return null;
+            }
+            return new MavenCoordinate(parts[0], parts[1], parts[2]);
+        }
+
+        private String artifactCoordinate() {
+            return groupId + ":" + artifactId;
         }
     }
 }

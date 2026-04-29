@@ -1,0 +1,62 @@
+{
+  "add_new_library_support:2026-04-17": {
+    "timestamp": "2026-04-17T20:16:35.872241Z",
+    "library": "org.jboss.narayana.jta:jta:5.12.4.Final",
+    "starting_commit": "dc5bb2d3277f2cf3005c468383476ec86f7d01c2",
+    "ending_commit": "f77416bd5af3da24a8ed8144e5574850d01dab02",
+    "strategy_name": "dynamic_access_main_sources_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success_with_intervention",
+    "stats": {
+      "version": "5.12.4.Final",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 1.0,
+            "coveredCalls": 8,
+            "totalCalls": 8
+          }
+        },
+        "coverageRatio": 1.0,
+        "coveredCalls": 8,
+        "totalCalls": 8
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 759,
+          "missed": 18148,
+          "ratio": 0.040144,
+          "total": 18907
+        },
+        "line": {
+          "covered": 222,
+          "missed": 4903,
+          "ratio": 0.043317,
+          "total": 5125
+        },
+        "method": {
+          "covered": 38,
+          "missed": 919,
+          "ratio": 0.039707,
+          "total": 957
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 272577,
+      "cached_input_tokens_used": 3102464,
+      "output_tokens_used": 25369,
+      "iterations": 7,
+      "cost_usd": 1.1561,
+      "generated_loc": 316,
+      "tested_library_loc": 222,
+      "metadata_entries": 24,
+      "code_coverage_percent": 4.33
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.jboss.narayana.jta/jta/5.12.4.Final/src/test/java/org_jboss_narayana_jta/jta/XAResourceRecordTest.java",
+      "metadata_file": "metadata/org.jboss.narayana.jta/jta/5.12.4.Final/reachability-metadata.json"
+    }
+  }
+}

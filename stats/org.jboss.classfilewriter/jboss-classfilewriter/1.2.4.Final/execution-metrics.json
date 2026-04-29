@@ -1,0 +1,122 @@
+{
+  "add_new_library_support:2026-04-20": {
+    "timestamp": "2026-04-20T23:54:55.267148Z",
+    "library": "org.jboss.classfilewriter:jboss-classfilewriter:1.2.4.Final",
+    "starting_commit": "479e82f031431ad9b74e734c62df630f009ed190",
+    "ending_commit": "db39dea8241b0c5133398da313de3d5a4772db0b",
+    "strategy_name": "dynamic_access_main_sources_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success",
+    "stats": {
+      "version": "1.2.4.Final",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 1.0,
+            "coveredCalls": 6,
+            "totalCalls": 6
+          }
+        },
+        "coverageRatio": 1.0,
+        "coveredCalls": 6,
+        "totalCalls": 6
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 4935,
+          "missed": 11151,
+          "ratio": 0.306789,
+          "total": 16086
+        },
+        "line": {
+          "covered": 971,
+          "missed": 2239,
+          "ratio": 0.302492,
+          "total": 3210
+        },
+        "method": {
+          "covered": 199,
+          "missed": 420,
+          "ratio": 0.321486,
+          "total": 619
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 216527,
+      "cached_input_tokens_used": 2823552,
+      "output_tokens_used": 40843,
+      "iterations": 6,
+      "cost_usd": 1.3185,
+      "generated_loc": 360,
+      "tested_library_loc": 971,
+      "metadata_entries": 0,
+      "code_coverage_percent": 30.25
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.jboss.classfilewriter/jboss-classfilewriter/1.2.4.Final/src/test/java/org_jboss_classfilewriter/jboss_classfilewriter/DefaultClassFactoryTest.java",
+      "metadata_file": "metadata/org.jboss.classfilewriter/jboss-classfilewriter/1.2.4.Final/reachability-metadata.json"
+    }
+  },
+  "add_new_library_support:2026-04-22": {
+    "timestamp": "2026-04-22T02:28:50.246034Z",
+    "library": "org.jboss.classfilewriter:jboss-classfilewriter:1.2.4.Final",
+    "starting_commit": "585c542b708d573f4036cc8d943b56902cfdce75",
+    "ending_commit": "97b8d45c1fde650a2062ccbe6327c22d4f5e63d9",
+    "strategy_name": "optimistic_dynamic_access_iterative_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success",
+    "stats": {
+      "version": "1.2.4.Final",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 0.333333,
+            "coveredCalls": 2,
+            "totalCalls": 6
+          }
+        },
+        "coverageRatio": 0.333333,
+        "coveredCalls": 2,
+        "totalCalls": 6
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 5290,
+          "missed": 10796,
+          "ratio": 0.328857,
+          "total": 16086
+        },
+        "line": {
+          "covered": 1115,
+          "missed": 2095,
+          "ratio": 0.347352,
+          "total": 3210
+        },
+        "method": {
+          "covered": 250,
+          "missed": 369,
+          "ratio": 0.403877,
+          "total": 619
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 374909,
+      "cached_input_tokens_used": 5011200,
+      "output_tokens_used": 99847,
+      "iterations": 8,
+      "cost_usd": 2.7505,
+      "generated_loc": 776,
+      "tested_library_loc": 1115,
+      "metadata_entries": 7,
+      "code_coverage_percent": 34.74
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.jboss.classfilewriter/jboss-classfilewriter/1.2.4.Final/src/test/java/org_jboss_classfilewriter/jboss_classfilewriter/CodeAttributeTest.java",
+      "metadata_file": "metadata/org.jboss.classfilewriter/jboss-classfilewriter/1.2.4.Final/reachability-metadata.json"
+    }
+  }
+}

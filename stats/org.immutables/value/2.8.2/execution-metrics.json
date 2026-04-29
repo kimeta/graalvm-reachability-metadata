@@ -1,0 +1,132 @@
+{
+  "add_new_library_support:2026-04-16": {
+    "timestamp": "2026-04-16T23:24:52.060390Z",
+    "library": "org.immutables:value:2.8.2",
+    "starting_commit": "af3495823e66c493da07845dba71bf04885abd3e",
+    "ending_commit": "905a5a21d9068048d34b7e7d64e5ed3a5e4dd332",
+    "strategy_name": "dynamic_access_main_sources_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success_with_intervention",
+    "stats": {
+      "version": "2.8.2",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 0.96,
+            "coveredCalls": 48,
+            "totalCalls": 50
+          },
+          "resources": {
+            "coverageRatio": 1.0,
+            "coveredCalls": 1,
+            "totalCalls": 1
+          }
+        },
+        "coverageRatio": 0.960784,
+        "coveredCalls": 49,
+        "totalCalls": 51
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 6646,
+          "missed": 288640,
+          "ratio": 0.022507,
+          "total": 295286
+        },
+        "line": {
+          "covered": 1604,
+          "missed": 58328,
+          "ratio": 0.026764,
+          "total": 59932
+        },
+        "method": {
+          "covered": 660,
+          "missed": 9576,
+          "ratio": 0.064478,
+          "total": 10236
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 676276,
+      "cached_input_tokens_used": 7635584,
+      "output_tokens_used": 94437,
+      "iterations": 23,
+      "cost_usd": 3.3255,
+      "generated_loc": 640,
+      "tested_library_loc": 8076,
+      "metadata_entries": 107,
+      "code_coverage_percent": 2.68
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.immutables/value/2.8.2/src/test/java/org/immutables/value/internal/$guava$/io/$Closer$SuppressingSuppressorTest.java",
+      "metadata_file": "metadata/org.immutables/value/2.8.2/reachability-metadata.json"
+    }
+  },
+  "add_new_library_support:2026-04-22": {
+    "timestamp": "2026-04-22T05:26:46.417371Z",
+    "library": "org.immutables:value:2.8.2",
+    "starting_commit": "3b6befd0a2fac6add2ea1b70aa9c8bb491d7fb75",
+    "ending_commit": "4bffa300dc7dc478a0f92bb209b45db1d6ff3789",
+    "strategy_name": "optimistic_dynamic_access_iterative_pi_gpt-5.4",
+    "agent": "pi",
+    "model": "oca/gpt-5.4",
+    "status": "success",
+    "stats": {
+      "version": "2.8.2",
+      "dynamicAccess": {
+        "breakdown": {
+          "reflection": {
+            "coverageRatio": 0.9,
+            "coveredCalls": 45,
+            "totalCalls": 50
+          },
+          "resources": {
+            "coverageRatio": 1.0,
+            "coveredCalls": 1,
+            "totalCalls": 1
+          }
+        },
+        "coverageRatio": 0.901961,
+        "coveredCalls": 46,
+        "totalCalls": 51
+      },
+      "libraryCoverage": {
+        "instruction": {
+          "covered": 6461,
+          "missed": 288825,
+          "ratio": 0.02188,
+          "total": 295286
+        },
+        "line": {
+          "covered": 1553,
+          "missed": 58379,
+          "ratio": 0.025913,
+          "total": 59932
+        },
+        "method": {
+          "covered": 640,
+          "missed": 9596,
+          "ratio": 0.062524,
+          "total": 10236
+        }
+      }
+    },
+    "metrics": {
+      "input_tokens_used": 896311,
+      "cached_input_tokens_used": 11059584,
+      "output_tokens_used": 136567,
+      "iterations": 23,
+      "cost_usd": 4.8134,
+      "generated_loc": 938,
+      "tested_library_loc": 1553,
+      "metadata_entries": 67,
+      "code_coverage_percent": 2.59
+    },
+    "artifacts": {
+      "test_file": "tests/src/org.immutables/value/2.8.2/src/test/java/org/eclipse/fake/ProxyProcessorCaller.java",
+      "metadata_file": "metadata/org.immutables/value/2.8.2/reachability-metadata.json"
+    }
+  }
+}

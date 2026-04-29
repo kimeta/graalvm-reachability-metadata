@@ -176,6 +176,7 @@ Schema:
 ```
 
 - `generateLibraryStats`: recomputes selected coordinates and updates matching exploded stats files under `stats/`.
+- Workflow scripts write execution metrics under `stats/<groupId>/<artifactId>/<metadata-version>/execution-metrics.json`.
 - `validateLibraryStats`: validates mirrored committed stats files, schema compliance, and normalized sorting without recomputing metrics.
 
 For new-library issue triage, the repository also exposes:
