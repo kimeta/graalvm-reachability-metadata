@@ -121,6 +121,7 @@ LABEL_PR_NI_RUN_FIX = "fixes-native-image-run-fail"
 LABEL_PR_LIBRARY_BULK_UPDATE = "library-bulk-update"
 LABEL_PRIORITY = "priority"
 LABEL_HUMAN_INTERVENTION = "human-intervention"
+LABEL_HUMAN_INTERVENTION_FIXED = "human-intervention-fixed"
 
 SCRATCH_WORKTREE_DIRNAME = "forge_worktrees"
 SCRATCH_REVIEW_WORKTREE_DIRNAME = "forge_review_worktrees"
@@ -417,14 +418,24 @@ def get_issues_with_label(label: str, limit: int, offset: int = 0, extra_labels:
 
 def get_pull_requests_with_label(label: str, fetch_limit: int) -> list[dict]:
     """Fetch open pull requests that carry the given label."""
+    return get_pull_requests_with_labels([label], fetch_limit)
+
+
+def get_pull_requests_with_labels(labels: list[str], fetch_limit: int) -> list[dict]:
+    """Fetch open pull requests that carry all given labels."""
+    unique_labels = list(dict.fromkeys(labels))
+    label_args: list[str] = []
+    for label in unique_labels:
+        label_args.extend(["--label", label])
+    label_description = "', '".join(unique_labels)
     print(
-        f"\n[Fetching open pull requests with label '{label}' from {REPO} "
+        f"\n[Fetching open pull requests with label(s) '{label_description}' from {REPO} "
         f"(fetched={fetch_limit})]"
     )
     data = gh_json(
         "pr", "list",
         "--repo", REPO,
-        "--label", label,
+        *label_args,
         "--state", "open",
         "--limit", str(fetch_limit),
         "--json", "number,title,url,author,labels,statusCheckRollup",
@@ -770,6 +781,54 @@ def get_pull_request_state(pr_number: int) -> dict:
     return pull_request
 
 
+def get_pull_request_reviews(pr_number: int) -> list[dict]:
+    """Fetch submitted reviews for a pull request."""
+    reviews = gh_json(
+        "api",
+        "--method",
+        "GET",
+        f"/repos/{REPO}/pulls/{pr_number}/reviews",
+        "-F",
+        "per_page=100",
+    )
+    if not isinstance(reviews, list):
+        print(f"ERROR: Missing reviews for pull request #{pr_number}.", file=sys.stderr)
+        raise RuntimeError(f"Missing reviews for pull request #{pr_number}")
+    return reviews
+
+
+def dismiss_requested_changes_reviews(pr_number: int, message: str | None = None) -> int:
+    """Dismiss all requested-changes reviews on a pull request."""
+    dismiss_message = (
+        message
+        or f"Dismissed because trusted maintainer marked this PR as '{LABEL_HUMAN_INTERVENTION_FIXED}'."
+    )
+    dismissed_count = 0
+    for review in get_pull_request_reviews(pr_number):
+        if not isinstance(review, dict) or review.get("state") != "CHANGES_REQUESTED":
+            continue
+
+        review_id = review.get("id")
+        if not isinstance(review_id, int):
+            print(
+                f"ERROR: Missing review id for requested-changes review on PR #{pr_number}.",
+                file=sys.stderr,
+            )
+            raise RuntimeError(f"Missing review id for requested-changes review on PR #{pr_number}")
+
+        gh(
+            "api",
+            "--method",
+            "PUT",
+            f"/repos/{REPO}/pulls/{pr_number}/reviews/{review_id}/dismissals",
+            "-f",
+            f"message={dismiss_message}",
+        )
+        dismissed_count += 1
+
+    return dismissed_count
+
+
 def has_passing_pull_request_gates(pr: dict) -> bool:
     """Return True when the pull request is mergeable and all status gates are green."""
     status_check_rollup = pr.get("statusCheckRollup")
@@ -782,22 +841,16 @@ def has_passing_pull_request_gates(pr: dict) -> bool:
 
 
 def resolve_pull_request_merge_flag(pr: dict) -> str:
-    """Resolve the preferred merge method flag for the target repository."""
+    """Resolve the merge method flag, preferring squash merges by default."""
     repository = pr.get("repository")
     if not isinstance(repository, dict):
         return "--squash"
 
-    default_method = repository.get("viewerDefaultMergeMethod")
     merge_flag_by_method = {
         "SQUASH": ("squashMergeAllowed", "--squash"),
         "MERGE": ("mergeCommitAllowed", "--merge"),
         "REBASE": ("rebaseMergeAllowed", "--rebase"),
     }
-    if default_method in merge_flag_by_method:
-        allowed_key, merge_flag = merge_flag_by_method[default_method]
-        if repository.get(allowed_key):
-            return merge_flag
-
     for method in ("SQUASH", "MERGE", "REBASE"):
         allowed_key, merge_flag = merge_flag_by_method[method]
         if repository.get(allowed_key):
@@ -807,7 +860,7 @@ def resolve_pull_request_merge_flag(pr: dict) -> str:
 
 
 def merge_pull_request(pr: dict) -> None:
-    """Merge a reviewed pull request when all merge gates are satisfied."""
+    """Merge a pull request using the repository's configured merge method."""
     pr_number = pr.get("number")
     head_ref_oid = pr.get("headRefOid")
     pr_url = pr.get("url") or f"https://github.com/{REPO}/pull/{pr_number}"
@@ -869,6 +922,15 @@ def reconcile_reviewed_pull_request(pr_number: int) -> bool:
             file=sys.stderr,
         )
         return False
+
+
+def is_review_pull_request_eligible(pull_request: dict, authenticated_user: str) -> bool:
+    """Return True when the review queue may process the pull request."""
+    return (
+        not is_authored_by_user(pull_request, authenticated_user)
+        and not pull_request_has_label(pull_request, LABEL_HUMAN_INTERVENTION)
+        and has_completed_ci_tasks(pull_request)
+    )
 
 
 def get_review_log_path(pr_number: int, coordinates: str | None = None) -> str:
@@ -1095,14 +1157,80 @@ def process_pull_requests_with_label(
 ) -> None:
     """Review labeled pull requests that are CI-complete, not self-authored, and need no human intervention."""
     fetch_limit = max(limit, 20)
+    fixed_pull_requests = get_pull_requests_with_labels(
+        [label, LABEL_HUMAN_INTERVENTION_FIXED],
+        fetch_limit,
+    )
+    fixed_candidate_pull_requests = [
+        pull_request for pull_request in fixed_pull_requests
+        if is_review_pull_request_eligible(pull_request, authenticated_user)
+    ]
+    while len(fixed_candidate_pull_requests) < limit and len(fixed_pull_requests) == fetch_limit:
+        print(
+            f"[Found {len(fixed_candidate_pull_requests)} eligible "
+            f"'{LABEL_HUMAN_INTERVENTION_FIXED}' PR(s) after filtering "
+            f"{len(fixed_pull_requests)} fetched PR(s); "
+            "fetching more.]"
+        )
+        fetch_limit *= 2
+        fixed_pull_requests = get_pull_requests_with_labels(
+            [label, LABEL_HUMAN_INTERVENTION_FIXED],
+            fetch_limit,
+        )
+        fixed_candidate_pull_requests = [
+            pull_request for pull_request in fixed_pull_requests
+            if is_review_pull_request_eligible(pull_request, authenticated_user)
+        ]
+
+    failed_reviews: list[int] = []
+    fixed_pull_requests_to_merge = fixed_candidate_pull_requests[:limit]
+    for pull_request in fixed_pull_requests_to_merge:
+        pr_number = pull_request["number"]
+        print(
+            f"[Merging PR #{pr_number} labeled "
+            f"'{LABEL_HUMAN_INTERVENTION_FIXED}' without automated review.]"
+        )
+        try:
+            dismissed_count = dismiss_requested_changes_reviews(pr_number)
+            if dismissed_count:
+                print(f"[Dismissed {dismissed_count} requested-changes review(s) on PR #{pr_number}.]")
+            gh(
+                "pr",
+                "review",
+                str(pr_number),
+                "--repo",
+                REPO,
+                "--approve",
+                "--body",
+                f"Approved after manual follow-up marked this PR as '{LABEL_HUMAN_INTERVENTION_FIXED}'.",
+            )
+            pr = get_pull_request_state(pr_number)
+            merge_pull_request(pr)
+        except Exception as exc:
+            print(
+                f"ERROR: Failed to merge human-intervention-fixed PR #{pr_number}: {exc!r}",
+                file=sys.stderr,
+            )
+            failed_reviews.append(pr_number)
+
+    remaining_limit = limit - len(fixed_pull_requests_to_merge)
+    if remaining_limit <= 0:
+        if failed_reviews:
+            print(
+                f"ERROR: Pull request processing failed for pull request(s): {failed_reviews}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return
+
+    fetch_limit = max(remaining_limit, 20)
     pull_requests = get_pull_requests_with_label(label, fetch_limit)
     candidate_pull_requests = [
         pull_request for pull_request in pull_requests
-        if not is_authored_by_user(pull_request, authenticated_user)
-        and not pull_request_has_label(pull_request, LABEL_HUMAN_INTERVENTION)
-        and has_completed_ci_tasks(pull_request)
+        if is_review_pull_request_eligible(pull_request, authenticated_user)
+        and not pull_request_has_label(pull_request, LABEL_HUMAN_INTERVENTION_FIXED)
     ]
-    while len(candidate_pull_requests) < limit and len(pull_requests) == fetch_limit:
+    while len(candidate_pull_requests) < remaining_limit and len(pull_requests) == fetch_limit:
         print(
             f"[Found {len(candidate_pull_requests)} eligible PR(s) after filtering "
             f"{len(pull_requests)} fetched PR(s); fetching more.]"
@@ -1111,9 +1239,8 @@ def process_pull_requests_with_label(
         pull_requests = get_pull_requests_with_label(label, fetch_limit)
         candidate_pull_requests = [
             pull_request for pull_request in pull_requests
-            if not is_authored_by_user(pull_request, authenticated_user)
-            and not pull_request_has_label(pull_request, LABEL_HUMAN_INTERVENTION)
-            and has_completed_ci_tasks(pull_request)
+            if is_review_pull_request_eligible(pull_request, authenticated_user)
+            and not pull_request_has_label(pull_request, LABEL_HUMAN_INTERVENTION_FIXED)
         ]
 
     authored_pull_requests = [
@@ -1128,7 +1255,7 @@ def process_pull_requests_with_label(
         pull_request for pull_request in pull_requests
         if not has_completed_ci_tasks(pull_request)
     ]
-    filtered_pull_requests = candidate_pull_requests[:limit]
+    filtered_pull_requests = candidate_pull_requests[:remaining_limit]
 
     if authored_pull_requests:
         print(f"[Skipping {len(authored_pull_requests)} PR(s) authored by {authenticated_user}.]")
@@ -1140,7 +1267,7 @@ def process_pull_requests_with_label(
     if incomplete_ci_pull_requests:
         print(f"[Skipping {len(incomplete_ci_pull_requests)} PR(s) without completed CI tasks.]")
 
-    if not filtered_pull_requests:
+    if not filtered_pull_requests and not fixed_pull_requests_to_merge:
         print(
             f"\n[No open pull requests found with label '{label}' that lack the "
             f"'{LABEL_HUMAN_INTERVENTION}' label, have completed CI tasks, and are not "
@@ -1148,7 +1275,6 @@ def process_pull_requests_with_label(
         )
         return
 
-    failed_reviews: list[int] = []
     for pull_request in filtered_pull_requests:
         pr_number = pull_request["number"]
         pr_url = pull_request.get("url") if isinstance(pull_request.get("url"), str) else None
@@ -1168,7 +1294,7 @@ def process_pull_requests_with_label(
 
     if failed_reviews:
         print(
-            f"ERROR: Codex review failed for pull request(s): {failed_reviews}",
+            f"ERROR: Pull request processing failed for pull request(s): {failed_reviews}",
             file=sys.stderr,
         )
         sys.exit(1)
