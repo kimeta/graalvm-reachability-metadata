@@ -6,7 +6,6 @@ license = {file = "LICENSE"}
 dependencies = [
     "pylint",
     "jsonschema",
-    "graphifyy",
 ]
 
 [project.scripts]
