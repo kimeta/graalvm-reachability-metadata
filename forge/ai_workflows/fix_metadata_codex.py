@@ -12,13 +12,19 @@ CODEX_MODEL_NAME = "oca/gpt-5.4"
 CODEX_TIMEOUT_SECONDS = 1200
 
 
-def run_codex_metadata_fix(reachability_metadata_path: str, coordinates: str) -> tuple[int, str, bool]:
+def run_codex_metadata_fix(
+        reachability_metadata_path: str,
+        coordinates: str,
+        reproduction_command: str | None = None,
+) -> tuple[int, str, bool]:
     """Run Codex to update metadata entries for the target library.
 
     Requires the ``fix-missing-reachability-metadata`` skill. The skill definition lives at:
     https://github.com/oracle/graalvm-reachability-metadata/blob/master/skills/fix-missing-reachability-metadata/SKILL.md
     """
     prompt = f"Fix the metadata entries for {coordinates}"
+    if reproduction_command:
+        prompt += f"\n\nReproduce the failure with:\n{reproduction_command}"
     cmd = [
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",

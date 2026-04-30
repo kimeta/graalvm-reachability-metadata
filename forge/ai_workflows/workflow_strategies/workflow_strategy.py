@@ -165,6 +165,7 @@ class WorkflowStrategy(ABC):
         def run_lane(
                 stage_name: str,
                 command_runner: Callable[[], str],
+                reproduction_command: str,
         ) -> str:
             log_stage("post-generation-test", f"Running {stage_name} for {library}")
             test_output = command_runner()
@@ -173,7 +174,11 @@ class WorkflowStrategy(ABC):
                 return RUN_STATUS_SUCCESS
 
             log_stage("metadata-fix", f"Running metadata fix workflow for {library} after {stage_name} failure")
-            codex_rc, codex_log_path, codex_timed_out = run_codex_metadata_fix(repo_path, library)
+            codex_rc, codex_log_path, codex_timed_out = run_codex_metadata_fix(
+                repo_path,
+                library,
+                reproduction_command=reproduction_command,
+            )
             recovery_test_output = test_output
             if not codex_timed_out and codex_rc == 0:
                 recovery_test_output = command_runner()
@@ -215,6 +220,7 @@ class WorkflowStrategy(ABC):
         regular_status = run_lane(
             "current-defaults latest GRAALVM test",
             lambda: self._run_command_with_env(test_cmd),
+            test_cmd,
         )
         if regular_status == RUN_STATUS_FAILURE:
             return RUN_STATUS_FAILURE
@@ -226,6 +232,7 @@ class WorkflowStrategy(ABC):
         future_defaults_status = run_lane(
             "future-defaults latest GRAALVM test",
             lambda: self._run_command_with_env(test_cmd, future_defaults_env),
+            f"GVM_TCK_NATIVE_IMAGE_MODE=future-defaults-all {test_cmd}",
         )
         if future_defaults_status == RUN_STATUS_FAILURE:
             return RUN_STATUS_FAILURE
@@ -239,6 +246,7 @@ class WorkflowStrategy(ABC):
         graalvm_25_status = run_lane(
             "current-defaults GRAALVM_25_0 test",
             lambda: self._run_command_with_env(test_cmd, graalvm_25_env),
+            f"GRAALVM_HOME=$GRAALVM_HOME_25_0 JAVA_HOME=$GRAALVM_HOME_25_0 {test_cmd}",
         )
         if graalvm_25_status == RUN_STATUS_FAILURE:
             return RUN_STATUS_FAILURE
