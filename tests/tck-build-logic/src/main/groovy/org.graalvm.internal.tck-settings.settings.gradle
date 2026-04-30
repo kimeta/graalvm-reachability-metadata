@@ -30,3 +30,8 @@ dependencyResolutionManagement {
         }
     }
 }
+
+File testSupportDir = baseDir.toPath().resolve("tests/tck-test-support").toFile()
+if (testSupportDir.isDirectory()) {
+    settings.includeBuild(testSupportDir)
+}
