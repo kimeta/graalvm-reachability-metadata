@@ -15,54 +15,6 @@ import forge_metadata
 from git_scripts import common_git
 
 
-def _project_status(status: str) -> dict:
-    return {
-        "projectItems": {
-            "nodes": [
-                {
-                    "project": {"number": forge_metadata.PROJECT_NUMBER},
-                    "fieldValues": {
-                        "nodes": [
-                            {
-                                "name": status,
-                                "field": {"name": forge_metadata.STATUS_FIELD_NAME},
-                            },
-                        ],
-                    },
-                },
-            ],
-        },
-    }
-
-
-def _blocker(number: int, status: str, assignees: list[str], repo: str = forge_metadata.REPO) -> dict:
-    owner, repo_name = repo.split("/")
-    blocker = {
-        "__typename": "Issue",
-        "number": number,
-        "closed": False,
-        "repository": {"owner": {"login": owner}, "name": repo_name},
-        "assignees": {"nodes": [{"login": assignee} for assignee in assignees]},
-    }
-    blocker.update(_project_status(status))
-    return blocker
-
-
-def _blocked_by_response(blockers: list[dict]) -> dict:
-    return {
-        "data": {
-            "repository": {
-                "issue": {
-                    "blockedBy": {
-                        "nodes": blockers,
-                        "pageInfo": {"hasNextPage": False, "endCursor": None},
-                    },
-                },
-            },
-        },
-    }
-
-
 def _project_item_status_response(status: str) -> dict:
     return {
         "data": {
@@ -138,7 +90,9 @@ def _preflight(
     )
 
 
-def _claimed_issue(label: str = forge_metadata.LABEL_LIBRARY_NEW) -> forge_metadata.ClaimedIssue:
+def _claimed_issue(
+        label: str = forge_metadata.LABEL_LIBRARY_NEW,
+) -> forge_metadata.ClaimedIssue:
     return forge_metadata.ClaimedIssue(
         issue={
             "number": 1412,
@@ -1160,146 +1114,6 @@ class ProjectItemStatusTests(unittest.TestCase):
         )
 
 
-class ActiveSiblingBlockerTests(unittest.TestCase):
-    def test_open_dependent_issue_numbers_ignore_pull_requests(self) -> None:
-        response = {
-            "data": {
-                "repository": {
-                    "issue": {
-                        "blocking": {
-                            "nodes": [
-                                {"__typename": "PullRequest", "number": 834, "closed": False},
-                                {"__typename": "Issue", "number": 1392, "closed": False},
-                            ],
-                            "pageInfo": {"hasNextPage": False, "endCursor": None},
-                        },
-                    },
-                },
-            },
-        }
-
-        with patch.object(forge_metadata, "gh_json", return_value=response) as gh_json:
-            self.assertEqual(
-                forge_metadata.get_open_dependent_issue_numbers(1391),
-                [1392],
-            )
-
-        self.assertIn("__typename", gh_json.call_args.args[-1])
-
-    def test_open_dependent_issues_preserve_repository(self) -> None:
-        response = {
-            "data": {
-                "repository": {
-                    "issue": {
-                        "blocking": {
-                            "nodes": [
-                                {
-                                    "__typename": "Issue",
-                                    "number": 834,
-                                    "closed": False,
-                                    "repository": {
-                                        "owner": {"login": "graalvm"},
-                                        "name": "native-build-tools",
-                                    },
-                                },
-                            ],
-                            "pageInfo": {"hasNextPage": False, "endCursor": None},
-                        },
-                    },
-                },
-            },
-        }
-
-        with patch.object(forge_metadata, "gh_json", return_value=response):
-            self.assertEqual(
-                forge_metadata.get_open_dependent_issues(995),
-                [forge_metadata.IssueReference("graalvm", "native-build-tools", 834)],
-            )
-
-    def test_in_progress_unassigned_sibling_is_not_active(self) -> None:
-        with patch.object(
-                forge_metadata,
-                "get_open_dependent_issues",
-                return_value=[forge_metadata.IssueReference("oracle", "graalvm-reachability-metadata", 1392)],
-        ):
-            with patch.object(
-                forge_metadata,
-                "gh_json",
-                return_value=_blocked_by_response(
-                    [_blocker(1462, forge_metadata.STATUS_IN_PROGRESS, [])]
-                ),
-            ):
-                self.assertEqual(
-                    forge_metadata.get_active_sibling_blocker_numbers(1391),
-                    [],
-                )
-
-    def test_assigned_sibling_is_active_even_when_status_is_stale(self) -> None:
-        with patch.object(
-                forge_metadata,
-                "get_open_dependent_issues",
-                return_value=[forge_metadata.IssueReference("oracle", "graalvm-reachability-metadata", 1392)],
-        ):
-            with patch.object(
-                forge_metadata,
-                "gh_json",
-                return_value=_blocked_by_response(
-                    [_blocker(1462, forge_metadata.STATUS_TODO, ["automation-user"])]
-                ),
-            ) as gh_json:
-                self.assertEqual(
-                    forge_metadata.get_active_sibling_blocker_numbers(1391),
-                    [1462],
-                )
-        self.assertNotIn("projectItems", gh_json.call_args.args[-1])
-
-    def test_active_sibling_check_uses_dependent_issue_repository(self) -> None:
-        with patch.object(
-                forge_metadata,
-                "get_open_dependent_issues",
-                return_value=[forge_metadata.IssueReference("graalvm", "native-build-tools", 834)],
-        ):
-            with patch.object(
-                    forge_metadata,
-                    "gh_json",
-                    return_value=_blocked_by_response(
-                        [_blocker(1462, forge_metadata.STATUS_TODO, ["automation-user"])]
-                    ),
-            ) as gh_json:
-                self.assertEqual(
-                    forge_metadata.get_active_sibling_blocker_numbers(995),
-                    [1462],
-                )
-
-        self.assertIn(
-            'repository(owner: "graalvm", name: "native-build-tools")',
-            gh_json.call_args.args[-1],
-        )
-
-    def test_active_sibling_check_ignores_blockers_from_other_repositories(self) -> None:
-        with patch.object(
-                forge_metadata,
-                "get_open_dependent_issues",
-                return_value=[forge_metadata.IssueReference("graalvm", "native-build-tools", 834)],
-        ):
-            with patch.object(
-                    forge_metadata,
-                    "gh_json",
-                    return_value=_blocked_by_response(
-                        [_blocker(
-                            12,
-                            forge_metadata.STATUS_TODO,
-                            ["automation-user"],
-                            repo="graalvm/native-build-tools",
-                        )]
-                    ),
-            ):
-                self.assertEqual(
-                    forge_metadata.get_active_sibling_blocker_numbers(995),
-                    [],
-                )
-
-
 class IssueClaimLockTests(unittest.TestCase):
     def test_try_claim_issue_skips_when_local_runner_holds_issue_lock(self) -> None:
         issue = {
@@ -1359,7 +1173,6 @@ class IssueClaimLockTests(unittest.TestCase):
                         "get_project_item_state",
                         return_value=("project-item", forge_metadata.STATUS_TODO),
                     ), \
-                    patch.object(forge_metadata, "get_active_sibling_blocker_numbers", return_value=[]), \
                     patch.object(forge_metadata, "set_issue_assignee") as set_issue_assignee, \
                     patch.object(forge_metadata, "set_item_status") as set_item_status, \
                     patch.object(forge_metadata.random, "uniform", return_value=0), \
@@ -1371,50 +1184,6 @@ class IssueClaimLockTests(unittest.TestCase):
 
         set_issue_assignee.assert_called_once_with(1412, "automation-user")
         set_item_status.assert_called_once_with("project-item", forge_metadata.STATUS_IN_PROGRESS)
-
-    def test_try_claim_issue_caches_active_sibling_blockers(self) -> None:
-        issue = {
-            "number": 1412,
-            "title": "Add support for org.example:lib:1.0.0",
-            "labels": [],
-            "assignees": [],
-        }
-        with tempfile.TemporaryDirectory() as lock_root:
-            with patch.object(forge_metadata, "get_issue_claim_locks_root", return_value=lock_root), \
-                    patch.object(forge_metadata, "get_open_blocking_issue_numbers", return_value=[]), \
-                    patch.object(
-                        forge_metadata,
-                        "get_issue_assignees",
-                        side_effect=[[], ["automation-user"]],
-                    ), \
-                    patch.object(
-                        forge_metadata,
-                        "get_project_item_state",
-                        return_value=("project-item", forge_metadata.STATUS_TODO),
-                    ), \
-                    patch.object(
-                        forge_metadata,
-                        "get_active_sibling_blocker_numbers",
-                        return_value=[3759, 3763],
-                    ) as get_active_sibling_blocker_numbers, \
-                    patch.object(forge_metadata, "set_issue_assignee") as set_issue_assignee, \
-                    patch.object(
-                        forge_metadata,
-                        "revert_issue_claim_if_still_owned_by_user",
-                    ) as revert_issue_claim_if_still_owned_by_user, \
-                    patch.object(forge_metadata.random, "uniform", return_value=0), \
-                    patch.object(forge_metadata.time, "sleep"):
-                self.assertIsNone(forge_metadata.try_claim_issue(issue, "automation-user"))
-                cache = forge_metadata.read_issue_claim_cache()
-                self.assertEqual(
-                    cache[1412].reason,
-                    forge_metadata.ISSUE_CLAIM_CACHE_REASON_ACTIVE_SIBLING_BLOCKED,
-                )
-                self.assertEqual(cache[1412].open_blockers, (3759, 3763))
-
-        set_issue_assignee.assert_called_once_with(1412, "automation-user")
-        get_active_sibling_blocker_numbers.assert_called_once_with(1412)
-        revert_issue_claim_if_still_owned_by_user.assert_called_once()
 
     def test_try_claim_issue_uses_combined_project_status_lookup(self) -> None:
         issue = {
@@ -1433,7 +1202,6 @@ class IssueClaimLockTests(unittest.TestCase):
                         return_value=("project-item", forge_metadata.STATUS_TODO),
                     ) as get_project_item_state, \
                     patch.object(forge_metadata, "get_item_status") as get_item_status, \
-                    patch.object(forge_metadata, "get_active_sibling_blocker_numbers", return_value=[]), \
                     patch.object(forge_metadata, "set_issue_assignee") as set_issue_assignee, \
                     patch.object(forge_metadata, "set_item_status") as set_item_status, \
                     patch.object(forge_metadata.random, "uniform", return_value=0), \

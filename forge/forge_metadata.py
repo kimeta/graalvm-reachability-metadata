@@ -141,7 +141,6 @@ ISSUE_CLAIM_LOCK_DIRNAME = "metadata-forge-issue-claim-locks"
 ISSUE_CLAIM_CACHE_REASON_ASSIGNED = "assigned"
 ISSUE_CLAIM_CACHE_REASON_HUMAN_INTERVENTION = "human_intervention"
 ISSUE_CLAIM_CACHE_REASON_BLOCKED = "blocked"
-ISSUE_CLAIM_CACHE_REASON_ACTIVE_SIBLING_BLOCKED = "active_sibling_blocked"
 ISSUE_CLAIM_CACHE_REASON_MISSING_PROJECT_ITEM = "missing_project_item"
 ISSUE_CLAIM_CACHE_REASON_NON_TODO = "non_todo"
 ISSUE_CLAIM_CACHE_REASON_IN_PROGRESS = "in_progress"
@@ -149,7 +148,6 @@ ISSUE_CLAIM_CACHE_REASONS = {
     ISSUE_CLAIM_CACHE_REASON_ASSIGNED,
     ISSUE_CLAIM_CACHE_REASON_HUMAN_INTERVENTION,
     ISSUE_CLAIM_CACHE_REASON_BLOCKED,
-    ISSUE_CLAIM_CACHE_REASON_ACTIVE_SIBLING_BLOCKED,
     ISSUE_CLAIM_CACHE_REASON_MISSING_PROJECT_ITEM,
     ISSUE_CLAIM_CACHE_REASON_NON_TODO,
     ISSUE_CLAIM_CACHE_REASON_IN_PROGRESS,
@@ -213,17 +211,6 @@ class IssueClaimPreflight:
     assignees: tuple[str, ...]
     open_blockers: tuple[int, ...]
     complete: bool
-
-
-@dataclass(frozen=True)
-class IssueReference:
-    owner: str
-    repo_name: str
-    number: int
-
-    @property
-    def repo(self) -> str:
-        return f"{self.owner}/{self.repo_name}"
 
 
 @dataclass(frozen=True)
@@ -3508,82 +3495,6 @@ def get_open_blocking_issue_numbers(issue_number: int) -> list[int]:
             return open_blockers
 
 
-def get_open_dependent_issues(issue_number: int) -> list[IssueReference]:
-    """Return open issues that are blocked by the given issue."""
-    owner, repo_name = REPO.split("/")
-    open_dependents: list[IssueReference] = []
-    cursor: str | None = None
-
-    while True:
-        after_clause = f', after: "{cursor}"' if cursor else ""
-        query = f"""
-        query {{
-          repository(owner: "{owner}", name: "{repo_name}") {{
-            issue(number: {issue_number}) {{
-              blocking(first: 100{after_clause}) {{
-                nodes {{
-                  __typename
-                  number
-                  closed
-                  ... on Issue {{
-                    repository {{
-                      owner {{
-                        login
-                      }}
-                      name
-                    }}
-                  }}
-                }}
-                pageInfo {{
-                  hasNextPage
-                  endCursor
-                }}
-              }}
-            }}
-          }}
-        }}
-        """
-        result = gh_json("api", "graphql", "-f", f"query={query}")
-        issue = (
-            result.get("data", {})
-            .get("repository", {})
-            .get("issue", {})
-        )
-        blocking = issue.get("blocking", {}) if isinstance(issue, dict) else {}
-        for dependent in blocking.get("nodes", []):
-            if not isinstance(dependent, dict) or dependent.get("closed", False):
-                continue
-            if dependent.get("__typename") not in (None, "Issue"):
-                continue
-            dependent_number = dependent.get("number")
-            repository = dependent.get("repository", {}) if isinstance(dependent, dict) else {}
-            dependent_owner = repository.get("owner", {}).get("login", owner)
-            dependent_repo_name = repository.get("name", repo_name)
-            if (
-                    isinstance(dependent_number, int)
-                    and isinstance(dependent_owner, str)
-                    and isinstance(dependent_repo_name, str)
-            ):
-                open_dependents.append(
-                    IssueReference(dependent_owner, dependent_repo_name, dependent_number)
-                )
-
-        page_info = blocking.get("pageInfo", {}) if isinstance(blocking, dict) else {}
-        if not page_info.get("hasNextPage"):
-            return open_dependents
-        cursor = page_info.get("endCursor")
-        if not cursor:
-            return open_dependents
-
-
-def get_open_dependent_issue_numbers(issue_number: int) -> list[int]:
-    """Return open issue numbers that are blocked by the given issue."""
-    return [
-        dependent.number
-        for dependent in get_open_dependent_issues(issue_number)
-    ]
-
-
 def _get_issue_node_project_status(issue_node: dict) -> str | None:
     project_items = issue_node.get("projectItems", {}) if isinstance(issue_node, dict) else {}
     for item in project_items.get("nodes", []):
@@ -3763,12 +3674,6 @@ def format_cached_issue_claim_skip(cached_skip: CachedIssueClaimSkip) -> str:
     if cached_skip.reason == ISSUE_CLAIM_CACHE_REASON_BLOCKED:
         blockers_text = ", ".join(f"#{blocker}" for blocker in cached_skip.open_blockers)
         return f"recently cached as blocked by open issue(s) {blockers_text}"
-    if cached_skip.reason == ISSUE_CLAIM_CACHE_REASON_ACTIVE_SIBLING_BLOCKED:
-        blockers_text = ", ".join(f"#{blocker}" for blocker in cached_skip.open_blockers)
-        return (
-            "recently cached as sharing a blocked downstream issue with active "
-            f"issue(s) {blockers_text}"
-        )
     if cached_skip.reason == ISSUE_CLAIM_CACHE_REASON_MISSING_PROJECT_ITEM:
         return f"recently cached as missing project {PROJECT_NUMBER} item"
     if cached_skip.reason in {ISSUE_CLAIM_CACHE_REASON_NON_TODO, ISSUE_CLAIM_CACHE_REASON_IN_PROGRESS}:
@@ -3957,86 +3862,6 @@ def resolve_next_issue_claim_candidate_batch(
     ]
 
 
-def get_active_sibling_blocker_numbers(issue_number: int) -> list[int]:
-    """
-    Return active open issues that block the same downstream issues as issue_number.
-
-    This prevents claiming multiple prerequisites for the same blocked issue when one
-    prerequisite is already being processed.
-    """
-    owner, repo_name = REPO.split("/")
-    active_siblings: set[int] = set()
-
-    for dependent_issue in get_open_dependent_issues(issue_number):
-        cursor: str | None = None
-        while True:
-            after_clause = f', after: "{cursor}"' if cursor else ""
-            query = f"""
-            query {{
-              repository(owner: "{dependent_issue.owner}", name: "{dependent_issue.repo_name}") {{
-                issue(number: {dependent_issue.number}) {{
-                  blockedBy(first: 100{after_clause}) {{
-                    nodes {{
-                      __typename
-                      number
-                      closed
-                      ... on Issue {{
-                        repository {{
-                          owner {{
-                            login
-                          }}
-                          name
-                        }}
-                      }}
-                      assignees(first: 10) {{
-                        nodes {{
-                          login
-                        }}
-                      }}
-                    }}
-                    pageInfo {{
-                      hasNextPage
-                      endCursor
-                    }}
-                  }}
-                }}
-              }}
-            }}
-            """
-            result = gh_json("api", "graphql", "-f", f"query={query}")
-            dependent_issue_node = (
-                result.get("data", {})
-                .get("repository", {})
-                .get("issue", {})
-            )
-            blocked_by = dependent_issue_node.get("blockedBy", {}) if isinstance(dependent_issue_node, dict) else {}
-            for blocker in blocked_by.get("nodes", []):
-                if not isinstance(blocker, dict) or blocker.get("closed", False):
-                    continue
-                if blocker.get("__typename") not in (None, "Issue"):
-                    continue
-                repository = blocker.get("repository", {})
-                blocker_owner = repository.get("owner", {}).get("login", owner)
-                blocker_repo_name = repository.get("name", repo_name)
-                if blocker_owner != owner or blocker_repo_name != repo_name:
-                    continue
-                blocker_number = blocker.get("number")
-                if not isinstance(blocker_number, int) or blocker_number == issue_number:
-                    continue
-                blocker_assignees = _get_issue_node_assignees(blocker)
-                if blocker_assignees:
-                    active_siblings.add(blocker_number)
-
-            page_info = blocked_by.get("pageInfo", {}) if isinstance(blocked_by, dict) else {}
-            if not page_info.get("hasNextPage"):
-                break
-            cursor = page_info.get("endCursor")
-            if not cursor:
-                break
-
-    return sorted(active_siblings)
-
-
 def is_issue_blocked(issue_number: int) -> bool:
     """Return True when the issue has at least one currently open blocking issue."""
     return bool(get_open_blocking_issue_numbers(issue_number))
@@ -4170,29 +3995,6 @@ def try_claim_issue_with_local_lock(issue: dict, authenticated_user: str) -> Opt
                         assignees=tuple(assignees),
                     )
                 ])
-            return None
-
-        active_sibling_blockers = get_active_sibling_blocker_numbers(number)
-        if active_sibling_blockers:
-            blockers_text = ", ".join(f"#{blocker}" for blocker in active_sibling_blockers)
-            print()
-            log_stage(
-                "issue-claim",
-                f"Issue #{number} shares a blocked downstream issue with active issue(s) {blockers_text}. Backing off.",
-            )
-            revert_issue_claim_if_still_owned_by_user(
-                item_id,
-                number,
-                authenticated_user,
-                f"active sibling issue(s) {blockers_text}",
-            )
-            record_issue_claim_cache_observations([
-                IssueClaimCacheObservation(
-                    issue_number=number,
-                    reason=ISSUE_CLAIM_CACHE_REASON_ACTIVE_SIBLING_BLOCKED,
-                    open_blockers=tuple(active_sibling_blockers),
-                )
-            ])
             return None
 
         set_item_status(item_id, STATUS_IN_PROGRESS)
