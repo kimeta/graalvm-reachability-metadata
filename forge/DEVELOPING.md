@@ -277,6 +277,8 @@ Agents are registered via `Agent.register(...)` and selected per-strategy throug
   - Use `~/.codex/sessions/...jsonl` rollout files as the primary downstream pipeline input. The `history.jsonl` stream is optional and intended for broader transcript search or aggregation.
 
 Workflow-local logs are grouped by library first as `logs/<group>:<artifact>:<version>/<task-type>/...`, for example `logs/org.example:lib:1.2.3/add-new-library-support/`.
+When a strategy configures `persistent-instructions`, these logs record whether
+that persistent layer was configured without printing the instruction text.
 
 - Metrics writer:
   ```python
@@ -339,7 +341,7 @@ Workflow-local logs are grouped by library first as `logs/<group>:<artifact>:<ve
 
 ### Adding new workflow strategies
 
-The project uses registry-based workflow and agent abstractions. Each workflow strategy is a Python class that inherits from `WorkflowStrategy` and is registered via a decorator. Agents are registered in the same way via `Agent.register(...)`. Strategies are configured through `strategies/predefined_strategies.json`, which defines the workflow, agent, model, optional provider, prompts, and parameters for each strategy.
+The project uses registry-based workflow and agent abstractions. Each workflow strategy is a Python class that inherits from `WorkflowStrategy` and is registered via a decorator. Agents are registered in the same way via `Agent.register(...)`. Strategies are configured through `strategies/predefined_strategies.json`, which defines the workflow, agent, model, optional provider, prompts, optional persistent instructions, and parameters for each strategy.
 
 Depending on what you need, there are three levels of customization:
 
@@ -359,6 +361,7 @@ If you want to run an existing workflow with a different model or tuned paramete
     "after-successful-iteration": "prompt_templates/after-successful-iteration/basic_after_success.md",
     "after-failed-iteration": "prompt_templates/after-failed-iteration/basic_after_fail.md"
   },
+  "persistent-instructions": "prompt_templates/persistent/default_agent_rules.md",
   "parameters": {
     "max-test-iterations": 10,
     "max-failed-generations": 4,
@@ -373,6 +376,12 @@ The strategy name is just a lookup key for the JSON entry. The workflow and agen
 For coding agents that support selecting an LLM backend separately from the model identifier, add a top-level `provider` field to the strategy entry. For example, Pi strategies that should run through OpenRouter can set `"provider": "openrouter"`.
 
 For different prompt behavior, create new prompt template files under `prompt_templates/` and reference them in the new strategy entry. Ensure that the context given to strategy workflows has prompt template placeholders. Prompt templates support Python string formatting with context variables (e.g., `{library}`, `{new_version}`) that are substituted at run time from the workflow context. Be sure that the workflow context contains placeholder keys.
+
+Use `persistent-instructions` for durable workflow rules that should outrank
+normal user prompts. The value is a prompt-template path rendered with the same
+workflow context as normal prompts. Keep task-specific details such as target
+coordinates, active dynamic-access classes, source-context paths, and Gradle
+failure output in normal prompt templates.
 
 #### Creating a new workflow pipeline
 

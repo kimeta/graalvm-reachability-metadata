@@ -22,7 +22,7 @@ from utility_scripts.library_finalization import run_library_finalization
 from utility_scripts.gradle_test_runner import run_gradle_test_command
 from utility_scripts.library_stats import stats_artifact_dir
 from utility_scripts.stage_logger import log_stage
-from utility_scripts.strategy_loader import load_prompt_template
+from utility_scripts.strategy_loader import load_persistent_instructions, load_prompt_template
 
 RUN_STATUS_SUCCESS = "success"
 RUN_STATUS_FAILURE = "failure"
@@ -95,6 +95,7 @@ class WorkflowStrategy(ABC):
             raise ValueError("Strategy is missing required field: model")
         self.prompts = self.strategy_obj.get("prompts", {})
         self.parameters = self.strategy_obj.get("parameters", {})
+        self.persistent_instructions = load_persistent_instructions(self.strategy_obj, **self.context)
         self.post_generation_intervention: dict | None = None
         self._validate_required_prompts()
         self._validate_required_params()

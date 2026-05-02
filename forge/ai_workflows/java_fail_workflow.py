@@ -285,6 +285,7 @@ def init_agent(
     model_name,
     library=None,
     task_type="session",
+    persistent_instructions: str | None = None,
 ):
     """Initialize and return the configured agent implementation."""
     editable_files = list_all_files(tests_root)
@@ -309,6 +310,7 @@ def init_agent(
         task_type=task_type,
         verbose=verbose,
         mcps=strategy.get("mcps", []),
+        persistent_instructions=persistent_instructions,
     )
 
 
@@ -437,6 +439,7 @@ def run_java_fail_workflow(config: JavaFailWorkflowConfig, argv=None):
         model_name=model_name,
         library=updated_library,
         task_type=config.task_type,
+        persistent_instructions=strategy_obj.persistent_instructions,
     )
 
     workflow_status, iterations = strategy_obj.run(

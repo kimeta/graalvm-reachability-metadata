@@ -298,6 +298,7 @@ def init_agent(
         task_type="session",
         verbose=False,
         model_name=DEFAULT_MODEL_NAME,
+        persistent_instructions: str | None = None,
 ):
     """Initialize the configured agent implementation."""
     strategy_agent = strategy.get("agent")
@@ -317,6 +318,7 @@ def init_agent(
         task_type=task_type,
         verbose=verbose,
         mcps=strategy.get("mcps", []),
+        persistent_instructions=persistent_instructions,
     )
 
 
@@ -527,6 +529,7 @@ def main(argv=None):
         task_type="add-new-library-support",
         verbose=is_verbose,
         model_name=model_name,
+        persistent_instructions=strategy_obj.persistent_instructions,
     )
 
     # Requires the graphify skill to be installed for the selected agent backend.

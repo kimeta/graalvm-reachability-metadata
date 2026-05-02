@@ -342,6 +342,7 @@ def main(argv=None) -> int:
         task_type="improve-library-coverage",
         verbose=is_verbose,
         mcps=strategy.get("mcps", []),
+        persistent_instructions=strategy_obj.persistent_instructions,
     )
 
     workflow_status, iterations = strategy_obj.run(agent=agent)

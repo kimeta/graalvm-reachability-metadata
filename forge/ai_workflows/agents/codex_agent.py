@@ -26,6 +26,7 @@ class CodexAgent(Agent):
             timeout: int = 1200,
             task_type: str = "session",
             library: str | None = None,
+            persistent_instructions: str | None = None,
             **_,
     ):
         self._model_name = model_name
@@ -33,6 +34,7 @@ class CodexAgent(Agent):
         self._timeout = timeout
         self._task_type = task_type
         self._library = library
+        self._persistent_instructions = persistent_instructions
         self._total_tokens_sent = 0
         self._cached_input_tokens_used = 0
         self._total_tokens_received = 0
@@ -47,6 +49,7 @@ class CodexAgent(Agent):
             model_name=self._model_name,
             working_dir=self._working_dir,
             timeout=self._timeout,
+            persistent_instructions=self._persistent_instructions,
         )
 
     @property
@@ -82,12 +85,13 @@ class CodexAgent(Agent):
     def send_prompt(self, prompt: str) -> str:
         self._print_session_log_once("Codex", self._session_log_path)
         original_thread_id = self._thread_id
+        config_args = self._build_config_args()
         if self._thread_id is None:
             cmd = [
                 "codex", "exec",
                 "--dangerously-bypass-approvals-and-sandbox",
                 "--json",
-                "-c", 'reasoning.effort="medium"',
+                *config_args,
                 "-m", self._model_name,
                 prompt,
             ]
@@ -96,7 +100,7 @@ class CodexAgent(Agent):
                 "codex", "exec", "resume",
                 "--dangerously-bypass-approvals-and-sandbox",
                 "--json",
-                "-c", 'reasoning.effort="medium"',
+                *config_args,
                 "-m", self._model_name,
                 self._thread_id,
                 prompt,
@@ -202,6 +206,7 @@ class CodexAgent(Agent):
     def _write_turn_log(self, thread_id: str | None, prompt: str, output: str) -> None:
         with open(self._session_log_path, "a", encoding="utf-8") as log_file:
             log_file.write(f"Thread ID:{thread_id or 'unknown'}\n")
+            log_file.write(f"Persistent instructions: {self._persistent_instruction_status()}\n")
             log_file.write("Prompt:\n")
             log_file.write(prompt)
             log_file.write("\n\nConversation:\n")
@@ -332,9 +337,32 @@ class CodexAgent(Agent):
             timeout=self._timeout,
             task_type=self._task_type,
             library=self._library,
+            persistent_instructions=self._persistent_instructions,
         )
         child._control_client = self._control_client
         return child
+
+    def _build_config_args(self) -> list[str]:
+        config = {
+            "reasoning.effort": "medium",
+        }
+        if self._persistent_instructions:
+            config["developer_instructions"] = self._persistent_instructions
+
+        args: list[str] = []
+        for key, value in config.items():
+            args.extend(["-c", f"{key}={self._toml_string(value)}"])
+        return args
+
+    @staticmethod
+    def _toml_string(value: str) -> str:
+        """Return a TOML basic string using JSON-compatible escaping."""
+        return json.dumps(value, ensure_ascii=False)
+
+    def _persistent_instruction_status(self) -> str:
+        if not self._persistent_instructions:
+            return "not configured"
+        return f"configured ({len(self._persistent_instructions)} chars)"
 
     @staticmethod
     def _extract_thread_id(output: str) -> str | None:
