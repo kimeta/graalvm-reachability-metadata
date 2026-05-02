@@ -190,6 +190,41 @@ Closure<List<File>> requiredDirectoryListProperty = { String propertyName, boole
     }
 }
 
+Closure<List<String>> packagesFromUserCodeFilter = {
+    File userCodeFilterFile = file("user-code-filter.json")
+    if (!userCodeFilterFile.isFile()) {
+        return []
+    }
+
+    Object parsed = new JsonSlurper().parse(userCodeFilterFile)
+    if (!(parsed instanceof Map)) {
+        throw new GradleException("Expected user-code-filter.json to contain a JSON object: ${userCodeFilterFile.absolutePath}")
+    }
+
+    Object rules = parsed.rules
+    if (!(rules instanceof List)) {
+        return []
+    }
+
+    Set<String> packages = new LinkedHashSet<>()
+    rules.each { Object rule ->
+        if (!(rule instanceof Map)) {
+            return
+        }
+        Object includeClasses = rule.includeClasses
+        if (!(includeClasses instanceof String)) {
+            return
+        }
+        String includeGlob = includeClasses.trim()
+        if (includeGlob.endsWith(".**")) {
+            packages.add(includeGlob.substring(0, includeGlob.length() - 3))
+        } else if (includeGlob.endsWith(".*")) {
+            packages.add(includeGlob.substring(0, includeGlob.length() - 2))
+        }
+    }
+    return packages.toList()
+}
+
 Closure<String> requiredAbsolutePathProperty = { String propertyName ->
     String propertyValue = requiredGradleProperty(propertyName)
     if (!new File(propertyValue).isAbsolute()) {
@@ -347,10 +382,19 @@ Provider<List<String>> nativeTraceBuildArgs = providers.provider {
         // The verification gate runs runNativeTraceImage in its correction
         // loop and routes on the binary's exit code. Bake exact-metadata
         // reporting + Exit-on-missing into the trace binary so the gate can
-        // observe ExitStatus.MISSING_METADATA (172) for a metadata gap and
-        // distinguish it from other test failures, while still collecting
-        // trace metadata in the same run.
-        buildArgs.add("--exact-reachability-metadata")
+        // observe ExitStatus.MISSING_METADATA (172) for a target-package
+        // metadata gap and distinguish it from other test failures, while
+        // still collecting trace metadata in the same run.
+        List<String> exactReachabilityMetadataPackages = packagesFromUserCodeFilter()
+        if (exactReachabilityMetadataPackages.isEmpty()) {
+            exactReachabilityMetadataPackages = commaSeparatedGradleProperty("traceMetadataConditionPackages")
+        }
+        if (exactReachabilityMetadataPackages.isEmpty()) {
+            requiredGradleProperty("traceMetadataConditionPackages")
+        }
+        exactReachabilityMetadataPackages.each { String packageName ->
+            buildArgs.add("--exact-reachability-metadata=${packageName}")
+        }
         buildArgs.add("-H:MissingRegistrationReportingMode=Exit")
     }
     return buildArgs

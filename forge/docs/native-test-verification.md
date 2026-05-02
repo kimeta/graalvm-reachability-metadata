@@ -50,7 +50,7 @@ branch to its checkpoint.
 | Coordinate `group:artifact:version` | Caller | Identifies the test module. |
 | Reachability repo path | Caller | Working directory for Gradle. |
 | Output directory | Caller | Absolute path. The caller picks a path namespaced per (library, class) for the dynamic-access caller, or per coordinate for non-class-scoped callers — same convention as [native-metadata-exploration.md §4](native-metadata-exploration.md#4-output). On `PASSED`, the gate merges all accepted per-cycle trace dirs into this directory (one `mergeNativeTraceMetadata` invocation). |
-| Condition packages | `condition_packages` argument to `verify_native_test_passes` | Default `[group]`. Passed to the binary at run time as `-XX:TraceMetadataConditionPackages=...`. |
+| Condition packages | `condition_packages` argument to `verify_native_test_passes` | Default `[group]`. Passed to the binary at run time as `-XX:TraceMetadataConditionPackages=...`. `runNativeTraceImage` scopes `--exact-reachability-metadata` from `user-code-filter.json` `includeClasses` package globs, falling back to these condition packages when no filter package is available. |
 | Outer budget | Strategy parameter `max-native-test-verification-iterations` | Default **100**. In practice convergence is expected within a handful of cycles; the high default is a soft cap, not a target. Each cycle rebuilds `nativeTestCompile`, so the wall-clock cost is dominated by native-image build time. |
 | Per-cycle timeout | `cycle_timeout_seconds` argument | Default 30 minutes. Caps a single `runNativeTraceImage` invocation; on timeout the cycle is treated as a non-zero binary exit and routed to codex. |
 
@@ -104,7 +104,7 @@ Per-cycle semantics:
   -PmetadataConfigDirs=<config_dirs>` (the last property is omitted on
   the first cycle when no trace dirs have been accepted yet). The
   resulting binary is built with `-H:+MetadataTracingSupport`,
-  `--exact-reachability-metadata`, and
+  `--exact-reachability-metadata=<user-code-filter packages>`, and
   `-H:MissingRegistrationReportingMode=Exit` (see
   [native-metadata-exploration.md §7.2](native-metadata-exploration.md#72-runnativetraceimage)).
   The same execution writes a trace dir **and** returns an
@@ -203,7 +203,9 @@ A `verify_native_test_passes(...)` invocation is correct iff:
    -Pcoordinates=... -PtraceMetadataPath=<runs_dir>/cycle-<i>
    -PtraceMetadataConditionPackages=<packages>` exactly once, with
    `-PmetadataConfigDirs=<accepted dirs>` appended whenever any prior
-   cycle was accepted.
+   cycle was accepted. Exact-reachability reporting for the trace binary is
+   scoped from `user-code-filter.json` `includeClasses` package globs, with
+   `<packages>` as the fallback.
 3. The verification binary's exit code is recovered from Gradle's
    "exit value N" log line and routed:
    - `0` → run `mergeNativeTraceMetadata` once with all accepted run
