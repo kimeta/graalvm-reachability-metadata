@@ -1,0 +1,54 @@
+{
+  "reflection" : [
+    {
+      "condition" : {
+        "typeReached" : "org.apache.thrift.meta_data.FieldMetaData"
+      },
+      "type" : "org_apache_thrift.libthrift.FieldMetaDataTest$GeneratedStruct",
+      "methods" : [
+        {
+          "name" : "<init>",
+          "parameterTypes" : [ ]
+        }
+      ]
+    },
+    {
+      "condition" : {
+        "typeReached" : "org.apache.thrift.TEnumHelper"
+      },
+      "type" : "org_apache_thrift.libthrift.TEnumHelperTest$ExampleThriftEnum",
+      "methods" : [
+        {
+          "name" : "findByValue",
+          "parameterTypes" : [
+            "int"
+          ]
+        }
+      ]
+    },
+    {
+      "condition" : {
+        "typeReached" : "org.apache.thrift.partial.EnumCache"
+      },
+      "type" : "org_apache_thrift.libthrift.EnumCacheTest$ExampleCachedEnum",
+      "methods" : [
+        {
+          "name" : "values",
+          "parameterTypes" : [ ]
+        }
+      ]
+    },
+    {
+      "condition" : {
+        "typeReached" : "org.apache.thrift.partial.ThriftMetadata$ThriftStruct"
+      },
+      "type" : "org_apache_thrift.libthrift.ThriftMetadataInnerThriftStructTest$GeneratedStruct",
+      "methods" : [
+        {
+          "name" : "<init>",
+          "parameterTypes" : [ ]
+        }
+      ]
+    }
+  ]
+}
