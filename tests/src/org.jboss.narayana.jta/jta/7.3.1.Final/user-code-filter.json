@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.arjuna.ats.internal.jta.**"
+    },
+    {
+      "includeClasses" : "com.arjuna.ats.jta.**"
+    }
+  ]
+}
