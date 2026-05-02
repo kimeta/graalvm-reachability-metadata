@@ -84,6 +84,7 @@ class PiRpcClient:
             model: str | None = None,
             working_dir: str | None = None,
             timeout: int = 720,
+            persistent_instructions: str | None = None,
     ):
         self._pi_command = pi_command
         self._session_dir = os.path.abspath(session_dir) if session_dir else None
@@ -91,6 +92,7 @@ class PiRpcClient:
         self._model = model
         self._working_dir = os.path.abspath(working_dir) if working_dir else None
         self._timeout = timeout
+        self._persistent_instructions = persistent_instructions
 
     def run_prompt(
             self,
@@ -234,6 +236,8 @@ class PiRpcClient:
             cmd.extend(["--provider", self._provider])
         if self._model:
             cmd.extend(["--model", self._model])
+        if self._persistent_instructions:
+            cmd.extend(["--append-system-prompt", self._persistent_instructions])
         cmd.extend(command_flags)
 
         try:

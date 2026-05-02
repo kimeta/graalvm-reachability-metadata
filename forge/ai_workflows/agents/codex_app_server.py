@@ -41,11 +41,13 @@ class CodexAppServerClient:
             working_dir: str,
             timeout: int = 600,
             reasoning_effort: str = "high",
+            persistent_instructions: str | None = None,
     ):
         self._model_name = model_name
         self._working_dir = os.path.abspath(working_dir)
         self._timeout = timeout
         self._reasoning_effort = reasoning_effort
+        self._persistent_instructions = persistent_instructions
 
     def start_thread(self) -> dict:
         params = self._build_common_thread_params()
@@ -114,12 +116,15 @@ class CodexAppServerClient:
             process.wait(timeout=5)
 
     def _build_common_thread_params(self) -> dict:
+        config = {"reasoning.effort": self._reasoning_effort}
+        if self._persistent_instructions:
+            config["developer_instructions"] = self._persistent_instructions
         return {
             "model": self._model_name,
             "cwd": self._working_dir,
             "approvalPolicy": "never",
             "sandbox": "danger-full-access",
-            "config": {"reasoning.effort": self._reasoning_effort},
+            "config": config,
             "persistExtendedHistory": True,
         }
 

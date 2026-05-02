@@ -183,6 +183,14 @@ token tracking) and self-register via `@Agent.register("name")`.
 A predefined strategy names the agent it requires; the entry script
 instantiates it through the registry.
 
+Strategies may also declare `persistent-instructions`, a rendered template
+for durable workflow rules. The agent adapters map it to their backend-specific
+persistent layer: Pi launches RPC with `--append-system-prompt`, Codex CLI
+passes `developer_instructions` through `codex exec -c`, and Codex app-server
+thread lifecycle calls include `developer_instructions` in the thread config.
+Session logs record whether persistent instructions were configured without
+printing the instruction text.
+
 ### 3.4 Workflow Strategies
 
 > Detailed reference: [Workflow strategies](workflow-strategies.md) — base

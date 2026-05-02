@@ -94,6 +94,10 @@ Each entry in `strategies/predefined_strategies.json` must provide:
 - `prompts` — map of prompt-key → template path. Required keys depend on the
   workflow (e.g., `dynamic_access_iterative` requires
   `dynamic-access-iteration`).
+- `persistent-instructions` — optional prompt-template path for durable,
+  workflow-wide rules that should be passed to the agent backend's persistent
+  instruction layer instead of a normal user prompt. The template is rendered
+  with the same substitution context as workflow prompts.
 - `parameters` — workflow-specific parameters (iteration limits,
   `source-context-types`, etc.).
 - `mcps` — optional list of MCP server names.

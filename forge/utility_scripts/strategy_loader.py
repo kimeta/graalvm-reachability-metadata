@@ -11,7 +11,6 @@ import os
 Helper module for loading prompt templates.
 """
 
-
 def load_predefined_strategies():
     """Load the predefined strategies JSON file."""
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -33,6 +32,19 @@ def load_prompt_template(relative_path, **kwargs):
     with open(template_path, "r", encoding="utf-8") as f:
         template = f.read()
     return template.format(**kwargs)
+
+
+def load_persistent_instructions(strategy: dict, **kwargs) -> str | None:
+    """Load optional persistent agent instructions for a strategy."""
+    relative_path = strategy.get("persistent-instructions")
+    if relative_path is None:
+        return None
+    if not isinstance(relative_path, str) or not relative_path:
+        raise ValueError(
+            "Strategy field 'persistent-instructions' must be a non-empty template path"
+        )
+    instructions = load_prompt_template(relative_path, **kwargs)
+    return instructions if instructions.strip() else None
 
 
 def list_strategy_names():

@@ -61,6 +61,11 @@
         },
         "additionalProperties": false
       },
+      "persistent-instructions": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Optional prompt-template path for workflow-wide instructions that should be passed through the agent backend's persistent instruction layer."
+      },
       "parameters": {
         "type": "object",
         "description": "Optional tunable parameters for the strategy.",
@@ -109,6 +114,7 @@
           "after-successful-iteration": "prompts/strategy/baseline/after_success.md",
           "after-failed-iteration": "prompts/strategy/baseline/after_fail.md"
         },
+        "persistent-instructions": "prompt_templates/persistent/default_agent_rules.md",
         "parameters": {
           "max-test-iterations": 5,
           "max-failed-generations": 1,

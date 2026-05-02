@@ -28,12 +28,14 @@ class PiAgent(Agent):
             session_dir: str | None = None,
             library: str | None = None,
             task_type: str = "session",
+            persistent_instructions: str | None = None,
             **_,
     ):
         self._model_name = model_name
         self._provider = provider
         self._working_dir = os.path.abspath(working_dir)
         self._timeout = timeout
+        self._persistent_instructions = persistent_instructions
         self._session_path: str | None = None
         self._total_tokens_sent = 0
         self._cached_input_tokens_used = 0
@@ -51,6 +53,7 @@ class PiAgent(Agent):
             model=self._model_name,
             working_dir=self._working_dir,
             timeout=self._timeout,
+            persistent_instructions=self._persistent_instructions,
         )
 
     @property
@@ -188,6 +191,7 @@ class PiAgent(Agent):
             provider=self._provider,
             library=self._library,
             task_type=self._task_type,
+            persistent_instructions=self._persistent_instructions,
         )
         child._rpc_client = self._rpc_client
         return child
@@ -392,6 +396,7 @@ class PiAgent(Agent):
             log_file.write("\n")
             log_file.write(f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n")
             log_file.write(f"Session: {self._display_path(session_path, self._working_dir)}\n")
+            log_file.write(f"Persistent instructions: {self._persistent_instruction_status()}\n")
             log_file.write("Event Trace:\n")
             for line in self._render_rpc_transcript(result.rpc_transcript):
                 log_file.write(line)
@@ -405,6 +410,7 @@ class PiAgent(Agent):
             log_file.write("\n")
             log_file.write(f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n")
             log_file.write(f"Session: {self._display_path(session_path, self._working_dir)}\n")
+            log_file.write(f"Persistent instructions: {self._persistent_instruction_status()}\n")
             log_file.write("Prompt:\n")
             for line in self._indent_block(prompt, prefix="  "):
                 log_file.write(f"{line}\n")
@@ -418,3 +424,8 @@ class PiAgent(Agent):
                     if not line.endswith("\n"):
                         log_file.write("\n")
             log_file.write("\n")
+
+    def _persistent_instruction_status(self) -> str:
+        if not self._persistent_instructions:
+            return "not configured"
+        return f"configured ({len(self._persistent_instructions)} chars)"
