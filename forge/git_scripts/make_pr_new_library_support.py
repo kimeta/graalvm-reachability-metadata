@@ -33,8 +33,6 @@ from utility_scripts.metrics_writer import (
 )
 from utility_scripts.large_library_progress import LABEL_LARGE_LIBRARY_PART, LargeLibraryProgressState
 from utility_scripts.library_stats import stats_artifact_dir
-from utility_scripts.source_context import resolve_test_source_layout
-from utility_scripts.test_quality_checks import cleanup_scaffold_placeholder_tests, format_placeholder_occurrence
 from utility_scripts.repo_path_resolver import (
     add_in_metadata_repo_argument,
     resolve_repo_roots,
@@ -425,26 +423,6 @@ def validate_run_quality(coordinates: str, metrics_repo_path: str) -> None:
         raise ValueError(f"Refusing to create PR for {coordinates}: {details}")
 
 
-def cleanup_generated_test_scaffold(coordinates: str, repo_path: str, metrics_repo_path: str) -> None:
-    """Remove untouched scaffold placeholder tests before opening a PR."""
-    run_metrics = read_pending_metrics(metrics_repo_path)
-    scaffold_commit_hash = run_metrics.get("starting_commit")
-    if not scaffold_commit_hash:
-        raise ValueError(f"Refusing to create PR for {coordinates}: missing scaffold commit in run metrics")
-    group, artifact, library_version = parse_coordinate_parts(coordinates)
-    module_dir = os.path.join(repo_path, "tests", "src", group, artifact, library_version)
-    test_source_layout = resolve_test_source_layout(repo_path, coordinates, module_dir)
-    cleanup_result = cleanup_scaffold_placeholder_tests(test_source_layout.source_root, repo_path, scaffold_commit_hash)
-    for removed_file in cleanup_result.removed_files:
-        print(f"Removed scaffold placeholder test: {os.path.relpath(removed_file, repo_path)}")
-    if cleanup_result.remaining_placeholders:
-        details = "; ".join(
-            format_placeholder_occurrence(occurrence, repo_path)
-            for occurrence in cleanup_result.remaining_placeholders
-        )
-        print(f"WARNING: Scaffold placeholder remains in {details} for {coordinates}")
-
-
 def main(argv=None):
     (
         coordinates,
@@ -460,7 +438,6 @@ def main(argv=None):
 
     ensure_gh_authenticated()
     validate_run_quality(coordinates, metrics_repo_path)
-    cleanup_generated_test_scaffold(coordinates, repo_path, metrics_repo_path)
 
     branch = push_current_branch_to_origin(
         coordinates=coordinates,

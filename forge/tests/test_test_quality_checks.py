@@ -47,7 +47,7 @@ class RealTest {
             self.assertTrue(os.path.exists(real_test_file))
             self.assertEqual(result.remaining_placeholders, [])
 
-    def test_keeps_and_reports_placeholder_when_no_real_test_exists(self) -> None:
+    def test_removes_untouched_scaffold_when_no_real_test_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             self._init_git_repo(tmp_dir)
             placeholder_file = os.path.join(tmp_dir, "ExampleTest.java")
@@ -70,13 +70,9 @@ class ExampleTest {
 
             result = cleanup_scaffold_placeholder_tests(tmp_dir, tmp_dir, scaffold_commit)
 
-            self.assertEqual(result.removed_files, [])
-            self.assertTrue(os.path.exists(placeholder_file))
-            self.assertEqual(len(result.remaining_placeholders), 1)
-            self.assertEqual(
-                format_placeholder_occurrence(result.remaining_placeholders[0], tmp_dir),
-                "ExampleTest.java:8",
-            )
+            self.assertEqual(result.removed_files, [placeholder_file])
+            self.assertFalse(os.path.exists(placeholder_file))
+            self.assertEqual(result.remaining_placeholders, [])
 
     def test_reports_placeholder_when_scaffold_file_changed_but_placeholder_remains(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

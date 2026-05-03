@@ -33,21 +33,20 @@ def cleanup_scaffold_placeholder_tests(
     if not os.path.isdir(test_source_root):
         return ScaffoldPlaceholderCleanupResult([], [])
 
-    placeholder_files = _find_placeholder_test_files(test_source_root)
+    scaffold_test_files = _find_scaffold_test_files(test_source_root, repo_path, scaffold_commit_hash)
+    placeholder_files = [
+        file_path for file_path in scaffold_test_files
+        if _file_contains_placeholder(file_path)
+    ]
     scaffold_files = [
         file_path for file_path in placeholder_files
         if _is_unchanged_since_commit(file_path, repo_path, scaffold_commit_hash)
     ]
-    non_placeholder_files = [
-        file_path for file_path in _list_test_source_files(test_source_root)
-        if file_path not in placeholder_files
-    ]
 
     removed_files: list[str] = []
-    if non_placeholder_files:
-        for file_path in scaffold_files:
-            os.remove(file_path)
-            removed_files.append(file_path)
+    for file_path in scaffold_files:
+        os.remove(file_path)
+        removed_files.append(file_path)
 
     remaining_placeholders: list[PlaceholderOccurrence] = []
     removed_file_set = set(removed_files)
@@ -66,20 +65,34 @@ def format_placeholder_occurrence(occurrence: PlaceholderOccurrence, repo_path: 
     return f"{display_path}:{occurrence.line_number}"
 
 
-def _find_placeholder_test_files(test_source_root: str) -> list[str]:
+def _find_scaffold_test_files(test_source_root: str, repo_path: str, scaffold_commit_hash: str) -> list[str]:
+    relative_source_root = os.path.relpath(test_source_root, repo_path)
+    result = subprocess.run(
+        [
+            "git",
+            "diff-tree",
+            "--root",
+            "--no-commit-id",
+            "--name-only",
+            "--diff-filter=A",
+            "-r",
+            scaffold_commit_hash,
+            "--",
+            relative_source_root,
+        ],
+        cwd=repo_path,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
     return [
-        file_path for file_path in _list_test_source_files(test_source_root)
-        if _file_contains_placeholder(file_path)
+        os.path.join(repo_path, relative_path)
+        for relative_path in result.stdout.splitlines()
+        if relative_path.endswith(TEST_SOURCE_EXTENSIONS)
     ]
-
-
-def _list_test_source_files(test_source_root: str) -> list[str]:
-    test_files: list[str] = []
-    for root_dir, _, file_names in os.walk(test_source_root):
-        for file_name in file_names:
-            if file_name.endswith(TEST_SOURCE_EXTENSIONS):
-                test_files.append(os.path.join(root_dir, file_name))
-    return sorted(test_files)
 
 
 def _file_contains_placeholder(file_path: str) -> bool:
