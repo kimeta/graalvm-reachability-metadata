@@ -25,9 +25,8 @@ code:
   earlier in this gate invocation).
 - `172`            -> metadata gap; append the cycle's trace dir to the
   running `metadataConfigDirs` so the next cycle's build sees it, then
-  continue. If a later `172` cycle produces no new trace metadata
-  entries, print the accumulated progress and fail fast because another
-  rebuild would repeat the same missing-metadata state.
+  continue. If later `172` cycles stop producing new trace metadata
+  entries, retry once and then route to codex with the native failure log.
 - any other non-0  -> code/test failure; route to codex (the coding
   agent). Codex finishes it: on codex success return
   `PASSED_WITH_INTERVENTION`; on codex failure return `FAILED`. The gate
@@ -88,9 +87,10 @@ flowchart TD
     Run --> Route{binary exit code}
     Route -- 0 --> Merge[mergeNativeTraceMetadata<br/>config_dirs &rarr; output_dir]
     Merge --> Pass([return PASSED<br/>or PASSED_WITH_INTERVENTION])
-    Route -- 172 --> Append[config_dirs += runs/cycle-i]
+    Route -- 172 + new metadata --> Append[config_dirs += runs/cycle-i]
     Append --> Bump[i = i + 1]
     Bump --> Outer
+    Route -- 172 + repeated no-progress --> Codex
     Route -- other --> Codex[run_codex_metadata_fix]
     Codex --> CodexOK{codex rc == 0?}
     CodexOK -- yes --> PassI([return PASSED_WITH_INTERVENTION])
@@ -118,10 +118,11 @@ Per-cycle semantics:
     metadata and returns.
   - `172` → `ExitStatus.MISSING_METADATA`. The trace dir captured at
     least one missing access; appending it to `config_dirs` makes the
-    next cycle's build see that metadata. Codex is **not** invoked. If
-    the current `172` cycle produces no new canonical metadata entries
-    compared with accepted trace dirs, the gate prints the accumulated
-    progress, prints the failure-log tail, and returns `FAILED`.
+    next cycle's build see that metadata. If the current `172` cycle
+    produces no new canonical metadata entries compared with accepted
+    trace dirs, the gate prints the accumulated progress and retries
+    once. A second consecutive no-progress `172` prints the failure-log
+    tail and routes to codex.
   - any other non-zero → the test or library code is broken in a way
     that more metadata cannot fix. Codex finishes it: codex is invoked
     once, and the gate returns based on codex's exit code. The gate does
@@ -136,7 +137,7 @@ Per-cycle semantics:
   failure is a real code/test bug we want surfaced.
 - **Two failure reasons, one status.** `FAILED` is returned on
   `metadata-gap-exhausted` (172 every cycle until the budget runs out) or
-  `code-failure` (codex did not converge on a non-172 failure). The
+  `code-failure` (codex did not converge after a routed failure). The
   diagnostic is recorded in the result's `intervention_records`,
   `accepted_run_dirs`, and `last_native_test_log_path`.
 - **Codex keeps prior config_dirs.** Codex's fixes are additive; the gate
@@ -174,7 +175,8 @@ The module composes existing helpers and owns no domain logic of its own:
 - `./gradlew mergeNativeTraceMetadata -PinputDirs=...
   -PoutputDir=<output_dir>` — single final merge on `PASSED`.
 - `run_codex_metadata_fix` — codex acts as the coding agent on non-172
-  failures and is the terminal step. Pi is **not** invoked.
+  failures and repeated no-progress 172 failures. It is the terminal step.
+  Pi is **not** invoked.
 
 The standalone trace-loop driver in
 [`utility_scripts/native_metadata_exploration.py`](native-metadata-exploration.md)
@@ -217,8 +219,11 @@ A `verify_native_test_passes(...)` invocation is correct iff:
    - `172` with new trace metadata entries → append
      `runs_dir/cycle-<i>` to the running config dirs and continue to the
      next outer cycle. Codex is **not** invoked.
-   - `172` with no new trace metadata entries → print the accumulated
-     progress and failure-log tail, then return `FAILED`.
+   - first consecutive `172` with no new trace metadata entries → print
+     the accumulated progress and retry once without changing config dirs.
+   - second consecutive `172` with no new trace metadata entries → print
+     the accumulated progress and failure-log tail, invoke
+     `run_codex_metadata_fix` once, and return based on its exit code.
    - any other non-zero → invoke `run_codex_metadata_fix` once and
      return based on its exit code: `PASSED_WITH_INTERVENTION` on codex
      success, `FAILED` on codex failure. The gate does not re-run
