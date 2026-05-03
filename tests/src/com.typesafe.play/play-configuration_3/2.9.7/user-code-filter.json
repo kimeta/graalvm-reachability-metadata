@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "play.**"
+    },
+    {
+      "includeClasses" : "com_typesafe_play.play_configuration_3.**"
+    }
+  ]
+}
