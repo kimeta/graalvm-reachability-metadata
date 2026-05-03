@@ -557,7 +557,7 @@ def main(argv=None):
         for removed_file in placeholder_cleanup.removed_files:
             log_stage(
                 "scaffold-cleanup",
-                f"Removed scaffold placeholder test {os.path.relpath(removed_file, reachability_repo_path)}",
+                f"Removed unchanged scaffold placeholder test {os.path.relpath(removed_file, reachability_repo_path)}",
             )
         if placeholder_cleanup.remaining_placeholders:
             for occurrence in placeholder_cleanup.remaining_placeholders:
