@@ -16,7 +16,8 @@ code. The gate routes on that exit code:
   earlier cycle).
 - ``172``   → metadata gap; append the cycle's trace dir to the running
   ``metadataConfigDirs`` so the next cycle's build sees it, then continue.
-  If a later ``172`` produces no new trace entries, print progress and fail.
+  If later ``172`` runs stop producing new trace entries, retry once and then
+  route to Codex with the native failure log.
 - any other → run ``run_codex_metadata_fix`` once. Codex finishes it: on
   codex success return ``PASSED_WITH_INTERVENTION``; on codex failure return
   ``FAILED``. The gate does not re-verify after codex.
@@ -66,6 +67,7 @@ _EXIT_VALUE_PATTERN = re.compile(r"exit\s+value\s+(\d+)", re.IGNORECASE)
 _TRACE_SENTINEL_FILE_NAMES = frozenset({"binary-exit-code"})
 _AGGREGATED_METADATA_FILE_NAME = "reachability-metadata.json"
 _FAILURE_LOG_TAIL_LINE_LIMIT = 300
+_NO_PROGRESS_CODEX_THRESHOLD = 2
 
 
 @dataclass
@@ -125,6 +127,7 @@ def verify_native_test_passes(
     intervention_used = False
     last_log_path: str | None = None
     last_binary_rc: int | None = None
+    consecutive_no_progress_cycles = 0
 
     def _make_result(status: str, iterations_used: int) -> NativeTestVerificationResult:
         return NativeTestVerificationResult(
@@ -215,24 +218,38 @@ def verify_native_test_passes(
             metadata_entries = _metadata_entries(run_dir)
             added_entries = metadata_entries - accepted_metadata_entries
             if not added_entries:
+                consecutive_no_progress_cycles += 1
                 _print_metadata_progress(
                     accepted_run_dirs=accepted_run_dirs,
                     accepted_entry_count=len(accepted_metadata_entries),
                     current_entry_count=len(metadata_entries),
-                    reason="no new trace metadata entries",
+                    reason=(
+                        "no new trace metadata entries; "
+                        f"stall {consecutive_no_progress_cycles}/{_NO_PROGRESS_CODEX_THRESHOLD}"
+                    ),
                 )
+                if consecutive_no_progress_cycles < _NO_PROGRESS_CODEX_THRESHOLD:
+                    log_stage(
+                        _GATE_STAGE,
+                        (
+                            f"cycle {cycle + 1}: binary exited 172 but produced no new "
+                            "trace metadata; retrying once before codex fallback"
+                        ),
+                    )
+                    continue
                 _print_failure_log_tail(log_path, cycle + 1)
-                log_stage(
-                    _GATE_STAGE,
-                    f"cycle {cycle + 1}: binary exited 172 but produced no new trace metadata; failing fast",
+                return _route_to_codex(
+                    cycle,
+                    run_dir,
+                    "binary exited 172 twice without new trace metadata",
                 )
-                return _make_result(STATUS_FAILED, cycle + 1)
             log_stage(
                 _GATE_STAGE,
                 f"cycle {cycle + 1}: binary exited 172 (missing metadata); "
                 f"adding {os.path.basename(run_dir)} to config_dirs "
                 f"({len(added_entries)} new entr{'y' if len(added_entries) == 1 else 'ies'})",
             )
+            consecutive_no_progress_cycles = 0
             accepted_metadata_entries.update(added_entries)
             accepted_run_dirs.append(run_dir)
             continue
