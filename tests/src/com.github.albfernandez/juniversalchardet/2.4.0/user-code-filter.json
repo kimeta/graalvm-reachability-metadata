@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "org.mozilla.universalchardet.**"
+    },
+    {
+      "includeClasses" : "com_github_albfernandez.juniversalchardet.**"
+    }
+  ]
+}
