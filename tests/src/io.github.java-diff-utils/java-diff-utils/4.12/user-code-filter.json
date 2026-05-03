@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.github.difflib.**"
+    },
+    {
+      "includeClasses" : "io_github_java_diff_utils.java_diff_utils.**"
+    }
+  ]
+}
