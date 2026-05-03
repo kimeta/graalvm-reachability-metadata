@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "play.api.libs.functional.**"
+    },
+    {
+      "includeClasses" : "com_typesafe_play.play_functional_3.**"
+    }
+  ]
+}
