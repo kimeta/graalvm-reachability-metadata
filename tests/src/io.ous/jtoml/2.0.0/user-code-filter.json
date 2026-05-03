@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "io.ous.jtoml.**"
+    },
+    {
+      "includeClasses" : "io_ous.jtoml.**"
+    }
+  ]
+}
