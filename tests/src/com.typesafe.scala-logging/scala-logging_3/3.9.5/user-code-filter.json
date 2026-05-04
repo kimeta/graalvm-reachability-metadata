@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.typesafe.scalalogging.**"
+    },
+    {
+      "includeClasses" : "com_typesafe_scala_logging.scala_logging_3.**"
+    }
+  ]
+}
