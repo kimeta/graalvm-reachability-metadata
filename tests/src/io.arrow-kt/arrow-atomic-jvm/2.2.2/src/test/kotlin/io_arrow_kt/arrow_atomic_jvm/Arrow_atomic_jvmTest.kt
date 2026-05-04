@@ -130,6 +130,16 @@ public class Arrow_atomic_jvmTest {
     }
 
     @Test
+    fun atomicIntArithmeticFollowsJvmOverflowSemantics() {
+        val counter = AtomicInt(Int.MAX_VALUE)
+
+        assertThat(counter.incrementAndGet()).isEqualTo(Int.MIN_VALUE)
+        assertThat(counter.getAndAdd(-1)).isEqualTo(Int.MIN_VALUE)
+        assertThat(counter.value).isEqualTo(Int.MAX_VALUE)
+        assertThat(counter.addAndGet(2)).isEqualTo(Int.MIN_VALUE + 1)
+    }
+
+    @Test
     fun atomicIntSupportsPublicUpdateFunctionsAndRetriesOnInterference() {
         val counter = AtomicInt(0)
         val seenValues = mutableListOf<Int>()
@@ -162,6 +172,21 @@ public class Arrow_atomic_jvmTest {
         val updated = counter.updateAndGet { current -> current * 2 }
         assertThat(updated).isEqualTo(50)
         assertThat(counter.value).isEqualTo(50)
+    }
+
+    @Test
+    fun atomicIntCompareAndExchangeReturnsWitnessValueAndOnlyUpdatesOnMatch() {
+        val counter = AtomicInt(4)
+
+        val failedWitness = counter.compareAndExchange(0, 9)
+
+        assertThat(failedWitness).isEqualTo(4)
+        assertThat(counter.value).isEqualTo(4)
+
+        val successfulWitness = counter.compareAndExchange(4, 9)
+
+        assertThat(successfulWitness).isEqualTo(4)
+        assertThat(counter.value).isEqualTo(9)
     }
 
     @Test
@@ -253,6 +278,16 @@ public class Arrow_atomic_jvmTest {
     }
 
     @Test
+    fun atomicLongArithmeticFollowsJvmOverflowSemantics() {
+        val total = AtomicLong(Long.MAX_VALUE)
+
+        assertThat(total.incrementAndGet()).isEqualTo(Long.MIN_VALUE)
+        assertThat(total.getAndAdd(-1L)).isEqualTo(Long.MIN_VALUE)
+        assertThat(total.value).isEqualTo(Long.MAX_VALUE)
+        assertThat(total.addAndGet(2L)).isEqualTo(Long.MIN_VALUE + 1L)
+    }
+
+    @Test
     fun atomicLongSupportsPublicUpdateFunctionsAndReportsFailedTryUpdate() {
         val total = AtomicLong(7L)
 
@@ -277,6 +312,21 @@ public class Arrow_atomic_jvmTest {
         val updated = total.updateAndGet { current -> current * 2L }
         assertThat(updated).isEqualTo(84L)
         assertThat(total.value).isEqualTo(84L)
+    }
+
+    @Test
+    fun atomicLongCompareAndExchangeReturnsWitnessValueAndOnlyUpdatesOnMatch() {
+        val total = AtomicLong(40L)
+
+        val failedWitness = total.compareAndExchange(0L, 99L)
+
+        assertThat(failedWitness).isEqualTo(40L)
+        assertThat(total.value).isEqualTo(40L)
+
+        val successfulWitness = total.compareAndExchange(40L, 99L)
+
+        assertThat(successfulWitness).isEqualTo(40L)
+        assertThat(total.value).isEqualTo(99L)
     }
 
     @Test
@@ -319,6 +369,45 @@ public class Arrow_atomic_jvmTest {
         assertThat(state.compareAndSet(expected, replacement)).isTrue()
         assertThat(state.compareAndSet(expected, State(step = 6, label = "stale"))).isFalse()
         assertThat(state.value).isSameAs(replacement)
+    }
+
+    @Test
+    fun atomicReferenceSupportsPolymorphicStateTransitions() {
+        val state = Atomic<ConnectionState>(Disconnected(reason = "idle"))
+
+        val previous = state.getAndUpdate { current ->
+            when (current) {
+                is Disconnected -> Connected(activeRequests = current.reason.length)
+                is Connected -> current.copy(activeRequests = current.activeRequests + 1)
+            }
+        }
+
+        assertThat(previous).isEqualTo(Disconnected(reason = "idle"))
+        assertThat(state.value).isEqualTo(Connected(activeRequests = 4))
+
+        val updated = state.updateAndGet { current ->
+            when (current) {
+                is Disconnected -> current
+                is Connected -> current.copy(activeRequests = current.activeRequests + 1)
+            }
+        }
+
+        assertThat(updated).isEqualTo(Connected(activeRequests = 5))
+        assertThat(state.value).isEqualTo(Connected(activeRequests = 5))
+    }
+
+    @Test
+    fun atomicReferenceSupportsNullableValues() {
+        val state = Atomic<String?>(null)
+
+        assertThat(state.value).isNull()
+        assertThat(state.compareAndSet(null, "ready")).isTrue()
+        assertThat(state.value).isEqualTo("ready")
+        assertThat(state.getAndSet(null)).isEqualTo("ready")
+        assertThat(state.value).isNull()
+
+        state.update { current -> current ?: "created" }
+        assertThat(state.value).isEqualTo("created")
     }
 
     @Test
@@ -444,6 +533,16 @@ public class Arrow_atomic_jvmTest {
         assertThat(transitions).containsExactly("5->7")
         assertThat(state.value).isEqualTo(State(step = 100, label = "interfering write"))
     }
+
+    private sealed interface ConnectionState
+
+    private data class Disconnected(
+        val reason: String,
+    ) : ConnectionState
+
+    private data class Connected(
+        val activeRequests: Int,
+    ) : ConnectionState
 
     private data class State(
         val step: Int,
