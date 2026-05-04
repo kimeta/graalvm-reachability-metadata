@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.squareup.javawriter.**"
+    },
+    {
+      "includeClasses" : "com_squareup.javawriter.**"
+    }
+  ]
+}
