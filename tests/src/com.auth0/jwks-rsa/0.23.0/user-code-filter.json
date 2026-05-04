@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.auth0.jwk.**"
+    },
+    {
+      "includeClasses" : "com_auth0.jwks_rsa.**"
+    }
+  ]
+}
