@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "sttp.ws.**"
+    },
+    {
+      "includeClasses" : "com_softwaremill_sttp_shared.ws_3.**"
+    }
+  ]
+}
