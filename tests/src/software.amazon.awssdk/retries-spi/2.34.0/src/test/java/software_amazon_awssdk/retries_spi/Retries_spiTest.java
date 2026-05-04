@@ -210,6 +210,42 @@ public class Retries_spiTest {
     }
 
     @Test
+    void jitteredExponentialBackoffUsesMaximumDelayAsTheCappedRange() {
+        BackoffStrategy fullJitter = BackoffStrategy.exponentialDelay(HUNDRED_MILLIS, TWO_HUNDRED_MILLIS);
+        BackoffStrategy halfJitter = BackoffStrategy.exponentialDelayHalfJitter(HUNDRED_MILLIS, TWO_HUNDRED_MILLIS);
+
+        assertThat(fullJitter.computeDelay(10))
+                .isGreaterThanOrEqualTo(Duration.ZERO)
+                .isLessThan(TWO_HUNDRED_MILLIS);
+        assertThat(halfJitter.computeDelay(10))
+                .isGreaterThanOrEqualTo(HUNDRED_MILLIS)
+                .isLessThanOrEqualTo(TWO_HUNDRED_MILLIS);
+    }
+
+    @Test
+    void backoffStrategiesCapVeryLargeDelaysToSupportedJitterRange() {
+        Duration veryLargeDelay = Duration.ofDays(365);
+        Duration ceiling = Duration.ofMillis(Integer.MAX_VALUE);
+        BackoffStrategy fixedWithJitter = BackoffStrategy.fixedDelay(veryLargeDelay);
+        BackoffStrategy exponentialWithoutJitter = BackoffStrategy.exponentialDelayWithoutJitter(
+                veryLargeDelay, veryLargeDelay);
+        BackoffStrategy exponentialWithJitter = BackoffStrategy.exponentialDelay(veryLargeDelay, veryLargeDelay);
+        BackoffStrategy exponentialWithHalfJitter = BackoffStrategy.exponentialDelayHalfJitter(
+                veryLargeDelay, veryLargeDelay);
+
+        assertThat(fixedWithJitter.computeDelay(1))
+                .isGreaterThanOrEqualTo(Duration.ZERO)
+                .isLessThan(ceiling);
+        assertThat(exponentialWithoutJitter.computeDelay(2)).isEqualTo(ceiling);
+        assertThat(exponentialWithJitter.computeDelay(2))
+                .isGreaterThanOrEqualTo(Duration.ZERO)
+                .isLessThan(ceiling);
+        assertThat(exponentialWithHalfJitter.computeDelay(2))
+                .isGreaterThanOrEqualTo(Duration.ofMillis(Integer.MAX_VALUE / 2))
+                .isLessThanOrEqualTo(ceiling);
+    }
+
+    @Test
     void backoffStrategiesValidatePositiveAttemptsAndPositiveDurations() {
         BackoffStrategy immediate = BackoffStrategy.retryImmediately();
         BackoffStrategy fixed = BackoffStrategy.fixedDelayWithoutJitter(HUNDRED_MILLIS);
@@ -228,6 +264,21 @@ public class Retries_spiTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> BackoffStrategy.exponentialDelayHalfJitter(HUNDRED_MILLIS, Duration.ofMillis(-1)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void backoffStrategiesExposeReadableDescriptions() {
+        assertThat(BackoffStrategy.retryImmediately().toString()).isEqualTo("(Immediately)");
+        assertThat(BackoffStrategy.fixedDelayWithoutJitter(HUNDRED_MILLIS).toString())
+                .contains("FixedDelayWithoutJitter", "delay", "PT0.1S");
+        assertThat(BackoffStrategy.fixedDelay(HUNDRED_MILLIS).toString())
+                .contains("FixedDelayWithJitter", "delay", "PT0.1S");
+        assertThat(BackoffStrategy.exponentialDelayWithoutJitter(HUNDRED_MILLIS, ONE_SECOND).toString())
+                .contains("ExponentialDelayWithoutJitter", "baseDelay", "PT0.1S", "maxDelay", "PT1S");
+        assertThat(BackoffStrategy.exponentialDelay(HUNDRED_MILLIS, ONE_SECOND).toString())
+                .contains("ExponentialDelayWithJitter", "baseDelay", "PT0.1S", "maxDelay", "PT1S");
+        assertThat(BackoffStrategy.exponentialDelayHalfJitter(HUNDRED_MILLIS, ONE_SECOND).toString())
+                .contains("ExponentialDelayWithHalfJitter", "baseDelay", "PT0.1S", "maxDelay", "PT1S");
     }
 
     @Test
@@ -277,12 +328,19 @@ public class Retries_spiTest {
         IllegalStateException outer = new IllegalStateException("outer", middle);
 
         builder.retryOnExceptionOrCause(IllegalArgumentException.class);
+        assertThat(builder.shouldRetry(new IllegalArgumentException("direct"))).isTrue();
         assertThat(builder.shouldRetry(outer)).isFalse();
         assertThat(builder.shouldRetry(new RuntimeException(
                 "outer", new IllegalArgumentException("direct cause")))).isTrue();
+        assertThat(builder.shouldRetry(new RuntimeException(
+                "outer", new NumberFormatException("different direct cause")))).isFalse();
 
-        builder.retryOnExceptionOrCauseInstanceOf(RuntimeException.class);
-        assertThat(builder.shouldRetry(outer)).isTrue();
+        builder.retryOnExceptionOrCauseInstanceOf(IllegalArgumentException.class);
+        assertThat(builder.shouldRetry(new NumberFormatException("direct subclass"))).isTrue();
+        assertThat(builder.shouldRetry(new RuntimeException(
+                "outer", new NumberFormatException("subclass direct cause")))).isTrue();
+        assertThat(builder.shouldRetry(new RuntimeException(
+                "outer", new IllegalStateException("different direct cause")))).isFalse();
 
         builder.retryOnRootCause(IllegalArgumentException.class);
         assertThat(builder.shouldRetry(outer)).isTrue();
