@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "io.prometheus.client.**"
+    },
+    {
+      "includeClasses" : "io_prometheus.simpleclient.**"
+    }
+  ]
+}
