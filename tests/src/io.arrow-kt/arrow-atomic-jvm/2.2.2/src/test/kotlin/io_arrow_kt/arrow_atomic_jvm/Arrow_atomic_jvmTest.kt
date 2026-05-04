@@ -76,6 +76,26 @@ public class Arrow_atomic_jvmTest {
     }
 
     @Test
+    fun atomicBooleanLoopContinuouslySuppliesLatestValueUntilActionStops() {
+        val flag = AtomicBoolean(false)
+        val observedValues = mutableListOf<Boolean>()
+
+        val failure = assertThrows<IllegalStateException> {
+            flag.loop { current ->
+                observedValues += current
+                if (current) {
+                    throw IllegalStateException("boolean loop stopped")
+                }
+                flag.value = true
+            }
+        }
+
+        assertThat(failure).hasMessage("boolean loop stopped")
+        assertThat(observedValues).containsExactly(false, true)
+        assertThat(flag.value).isTrue()
+    }
+
+    @Test
     fun atomicIntSupportsActualAtomicOperationsAndValueProperty() {
         val counter = AtomicInt(1)
 
@@ -95,6 +115,18 @@ public class Arrow_atomic_jvmTest {
         assertThat(counter.compareAndSet(15, 20)).isTrue()
         assertThat(counter.compareAndSet(15, 30)).isFalse()
         assertThat(counter.value).isEqualTo(20)
+    }
+
+    @Test
+    fun atomicIntSupportsGetThenArithmeticOperations() {
+        val counter = AtomicInt(10)
+
+        assertThat(counter.getAndIncrement()).isEqualTo(10)
+        assertThat(counter.value).isEqualTo(11)
+        assertThat(counter.getAndDecrement()).isEqualTo(11)
+        assertThat(counter.value).isEqualTo(10)
+        assertThat(counter.getAndAdd(5)).isEqualTo(10)
+        assertThat(counter.value).isEqualTo(15)
     }
 
     @Test
@@ -209,6 +241,18 @@ public class Arrow_atomic_jvmTest {
     }
 
     @Test
+    fun atomicLongSupportsGetThenArithmeticOperations() {
+        val total = AtomicLong(10L)
+
+        assertThat(total.getAndIncrement()).isEqualTo(10L)
+        assertThat(total.value).isEqualTo(11L)
+        assertThat(total.getAndDecrement()).isEqualTo(11L)
+        assertThat(total.value).isEqualTo(10L)
+        assertThat(total.getAndAdd(5L)).isEqualTo(10L)
+        assertThat(total.value).isEqualTo(15L)
+    }
+
+    @Test
     fun atomicLongSupportsPublicUpdateFunctionsAndReportsFailedTryUpdate() {
         val total = AtomicLong(7L)
 
@@ -236,6 +280,26 @@ public class Arrow_atomic_jvmTest {
     }
 
     @Test
+    fun atomicLongLoopContinuouslySuppliesLatestValueUntilActionStops() {
+        val total = AtomicLong(1L)
+        val observedValues = mutableListOf<Long>()
+
+        val failure = assertThrows<IllegalStateException> {
+            total.loop { current ->
+                observedValues += current
+                if (current == 3L) {
+                    throw IllegalStateException("long loop stopped")
+                }
+                total.value = current + 1L
+            }
+        }
+
+        assertThat(failure).hasMessage("long loop stopped")
+        assertThat(observedValues).containsExactly(1L, 2L, 3L)
+        assertThat(total.value).isEqualTo(3L)
+    }
+
+    @Test
     fun atomicReferenceSupportsActualAtomicOperationsAndValueProperty() {
         val state = Atomic(State(step = 1, label = "created"))
 
@@ -254,6 +318,22 @@ public class Arrow_atomic_jvmTest {
         val replacement = State(step = 5, label = "cas")
         assertThat(state.compareAndSet(expected, replacement)).isTrue()
         assertThat(state.compareAndSet(expected, State(step = 6, label = "stale"))).isFalse()
+        assertThat(state.value).isSameAs(replacement)
+    }
+
+    @Test
+    fun atomicReferenceCompareAndSetRequiresTheSameExpectedInstance() {
+        val initial = State(step = 1, label = "same value")
+        val equalButDifferentInstance = initial.copy()
+        val replacement = State(step = 2, label = "replacement")
+        val state = Atomic(initial)
+
+        assertThat(equalButDifferentInstance).isEqualTo(initial)
+        assertThat(equalButDifferentInstance).isNotSameAs(initial)
+        assertThat(state.compareAndSet(equalButDifferentInstance, replacement)).isFalse()
+        assertThat(state.value).isSameAs(initial)
+
+        assertThat(state.compareAndSet(initial, replacement)).isTrue()
         assertThat(state.value).isSameAs(replacement)
     }
 
@@ -282,6 +362,30 @@ public class Arrow_atomic_jvmTest {
         val updated = state.updateAndGet { current -> current.copy(label = "finished") }
         assertThat(updated).isEqualTo(State(51, "finished"))
         assertThat(state.value).isEqualTo(State(51, "finished"))
+    }
+
+    @Test
+    fun atomicReferenceLoopContinuouslySuppliesLatestValueUntilActionStops() {
+        val state = Atomic(State(step = 1, label = "looping"))
+        val observedValues = mutableListOf<State>()
+
+        val failure = assertThrows<IllegalStateException> {
+            state.loop { current ->
+                observedValues += current
+                if (current.step == 3) {
+                    throw IllegalStateException("reference loop stopped")
+                }
+                state.value = current.copy(step = current.step + 1)
+            }
+        }
+
+        assertThat(failure).hasMessage("reference loop stopped")
+        assertThat(observedValues).containsExactly(
+            State(step = 1, label = "looping"),
+            State(step = 2, label = "looping"),
+            State(step = 3, label = "looping"),
+        )
+        assertThat(state.value).isEqualTo(State(step = 3, label = "looping"))
     }
 
     @Test
