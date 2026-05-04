@@ -83,6 +83,18 @@ public class ArrowExceptionUtilsJvmTest {
     }
 
     @Test
+    fun `throwIfFatal works when used as a Throwable function reference`() {
+        val rejectFatal: (Throwable) -> Unit = Throwable::throwIfFatal
+        val nonFatal: IllegalArgumentException = IllegalArgumentException("recoverable")
+        val fatal: LinkageError = LinkageError("fatal")
+
+        assertThatCode { rejectFatal(nonFatal) }
+            .doesNotThrowAnyException()
+        assertThatThrownBy { rejectFatal(fatal) }
+            .isSameAs(fatal)
+    }
+
+    @Test
     fun `throwIfNotNull does nothing for null`() {
         val failure: Throwable? = null
 
@@ -129,6 +141,18 @@ public class ArrowExceptionUtilsJvmTest {
 
         assertThat(result).isSameAs(primary)
         assertThat(primary.suppressed).containsExactly(secondary)
+    }
+
+    @Test
+    fun `mergeSuppressed returns a fatal throwable unchanged when it is the only failure`() {
+        val fatalPrimary: LinkageError = LinkageError("primary fatal")
+        val fatalSecondary: OutOfMemoryError = OutOfMemoryError("secondary fatal")
+        val noPrimary: Throwable? = null
+
+        assertThat(fatalPrimary.mergeSuppressed(null)).isSameAs(fatalPrimary)
+        assertThat(noPrimary.mergeSuppressed(fatalSecondary)).isSameAs(fatalSecondary)
+        assertThat(fatalPrimary.suppressed).isEmpty()
+        assertThat(fatalSecondary.suppressed).isEmpty()
     }
 
     @Test
@@ -180,6 +204,17 @@ public class ArrowExceptionUtilsJvmTest {
     }
 
     @Test
+    fun `mergeSuppressed leaves primary unchanged when suppression is disabled`() {
+        val primary: SuppressionDisabledException = SuppressionDisabledException("primary")
+        val secondary: IllegalStateException = IllegalStateException("secondary")
+
+        val result: Throwable? = primary.mergeSuppressed(secondary)
+
+        assertThat(result).isSameAs(primary)
+        assertThat(primary.suppressed).isEmpty()
+    }
+
+    @Test
     fun `mergeSuppressed rethrows fatal secondary failures unchanged`() {
         val primary: IllegalArgumentException = IllegalArgumentException("primary")
         val fatal: LinkageError = LinkageError("linkage")
@@ -188,4 +223,8 @@ public class ArrowExceptionUtilsJvmTest {
             .isSameAs(fatal)
         assertThat(primary.suppressed).isEmpty()
     }
+
+    private class SuppressionDisabledException(
+        message: String,
+    ) : Exception(message, null, false, true)
 }
