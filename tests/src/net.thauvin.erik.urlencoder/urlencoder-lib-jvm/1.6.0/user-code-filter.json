@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "net.thauvin.erik.urlencoder.**"
+    },
+    {
+      "includeClasses" : "net_thauvin_erik_urlencoder.urlencoder_lib_jvm.**"
+    }
+  ]
+}
