@@ -182,6 +182,39 @@ public class RetriesTest {
     }
 
     @Test
+    void circuitBreakerCapacityIsIsolatedByRequestScope() {
+        StandardRetryStrategy strategy = StandardRetryStrategy.builder()
+            .maxAttempts(2)
+            .retryOnExceptionInstanceOf(RuntimeException.class)
+            .backoffStrategy(BackoffStrategy.retryImmediately())
+            .circuitBreakerEnabled(true)
+            .build();
+        String exhaustedScope = "exhausted-scope";
+        TokenAcquisitionFailedException blockedRetry = null;
+
+        for (int attempt = 0; attempt < 200 && blockedRetry == null; attempt++) {
+            RetryToken token = strategy.acquireInitialToken(AcquireInitialTokenRequest.create(exhaustedScope)).token();
+            RuntimeException failure = new RuntimeException("scope failure " + attempt);
+            try {
+                strategy.refreshRetryToken(refreshRequest(token, failure).build());
+            } catch (TokenAcquisitionFailedException e) {
+                assertThat(e).hasCause(failure);
+                blockedRetry = e;
+            }
+        }
+
+        assertThat(blockedRetry).isNotNull()
+            .hasMessageContaining("protect the caller");
+
+        RetryToken independentScopeToken = strategy.acquireInitialToken(AcquireInitialTokenRequest.create(
+            "independent-scope")).token();
+        RefreshRetryTokenResponse retry = strategy.refreshRetryToken(
+            refreshRequest(independentScopeToken, new RuntimeException("independent failure")).build());
+
+        assertThat(retry.token()).isNotNull();
+    }
+
+    @Test
     void legacyStrategyUsesThrottlingBackoffForFailuresMarkedAsThrottling() {
         LegacyRetryStrategy strategy = LegacyRetryStrategy.builder()
             .maxAttempts(3)
@@ -202,6 +235,43 @@ public class RetriesTest {
         RefreshRetryTokenResponse throttledRetry = strategy.refreshRetryToken(
             refreshRequest(throttledToken, new ThrottlingFailure()).build());
         assertThat(throttledRetry.delay()).isEqualTo(Duration.ofMillis(8));
+    }
+
+    @Test
+    void legacyStrategyDoesNotSpendCircuitBreakerCapacityForThrottlingFailures() {
+        LegacyRetryStrategy strategy = LegacyRetryStrategy.builder()
+            .maxAttempts(2)
+            .retryOnExceptionInstanceOf(RuntimeException.class)
+            .treatAsThrottling(ThrottlingFailure.class::isInstance)
+            .backoffStrategy(BackoffStrategy.retryImmediately())
+            .throttlingBackoffStrategy(BackoffStrategy.retryImmediately())
+            .circuitBreakerEnabled(true)
+            .build();
+        String throttledScope = "legacy-throttling-capacity";
+
+        for (int attempt = 0; attempt < 120; attempt++) {
+            RetryToken token = strategy.acquireInitialToken(AcquireInitialTokenRequest.create(throttledScope)).token();
+            RefreshRetryTokenResponse retry = strategy.refreshRetryToken(
+                refreshRequest(token, new ThrottlingFailure()).build());
+            assertThat(retry.token()).isNotNull();
+        }
+
+        TokenAcquisitionFailedException blockedRetry = null;
+        for (int attempt = 0; attempt < 200 && blockedRetry == null; attempt++) {
+            RetryToken token = strategy.acquireInitialToken(AcquireInitialTokenRequest.create("legacy-normal-capacity"))
+                .token();
+            RuntimeException failure = new RuntimeException("normal-" + attempt);
+            try {
+                strategy.refreshRetryToken(refreshRequest(token, failure).build());
+            } catch (TokenAcquisitionFailedException e) {
+                assertThat(e).hasCause(failure);
+                blockedRetry = e;
+            }
+        }
+
+        assertThat(blockedRetry).isNotNull()
+            .hasMessageContaining("protect the caller")
+            .satisfies(exception -> assertThat(exception.token()).isNotNull());
     }
 
     @Test
@@ -493,6 +563,105 @@ public class RetriesTest {
         assertThat(successToken).isNotSameAs(initialToken);
     }
 
+    @Test
+    void standardStrategyToBuilderCopiesConfigurationAndUseClientDefaults() {
+        StandardRetryStrategy original = StandardRetryStrategy.builder()
+            .maxAttempts(4)
+            .useClientDefaults(false)
+            .retryOnExceptionInstanceOf(RuntimeException.class)
+            .backoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(Duration.ofMillis(6)))
+            .throttlingBackoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(Duration.ofMillis(18)))
+            .treatAsThrottling(ThrottlingFailure.class::isInstance)
+            .circuitBreakerEnabled(false)
+            .build();
+
+        StandardRetryStrategy copied = original.toBuilder()
+            .maxAttempts(3)
+            .build();
+
+        assertThat(original.maxAttempts()).isEqualTo(4);
+        assertThat(original.useClientDefaults()).isFalse();
+        assertThat(copied.maxAttempts()).isEqualTo(3);
+        assertThat(copied.useClientDefaults()).isFalse();
+        assertThat(refreshDelay(copied, new RuntimeException("normal"), "standard-copy-normal"))
+            .isEqualTo(Duration.ofMillis(6));
+        assertThat(refreshDelay(copied, new ThrottlingFailure(), "standard-copy-throttled"))
+            .isEqualTo(Duration.ofMillis(18));
+    }
+
+    @Test
+    void legacyStrategyToBuilderCopiesConfigurationAndUseClientDefaults() {
+        LegacyRetryStrategy original = LegacyRetryStrategy.builder()
+            .maxAttempts(4)
+            .useClientDefaults(false)
+            .retryOnExceptionInstanceOf(RuntimeException.class)
+            .backoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(Duration.ofMillis(5)))
+            .throttlingBackoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(Duration.ofMillis(21)))
+            .treatAsThrottling(ThrottlingFailure.class::isInstance)
+            .circuitBreakerEnabled(false)
+            .build();
+
+        LegacyRetryStrategy copied = original.toBuilder()
+            .maxAttempts(2)
+            .build();
+
+        assertThat(original.maxAttempts()).isEqualTo(4);
+        assertThat(original.useClientDefaults()).isFalse();
+        assertThat(copied.maxAttempts()).isEqualTo(2);
+        assertThat(copied.useClientDefaults()).isFalse();
+        assertThat(refreshDelay(copied, new RuntimeException("normal"), "legacy-copy-normal"))
+            .isEqualTo(Duration.ofMillis(5));
+        assertThat(refreshDelay(copied, new ThrottlingFailure(), "legacy-copy-throttled"))
+            .isEqualTo(Duration.ofMillis(21));
+    }
+
+    @Test
+    void adaptiveStrategyRecordsSuccessAfterThrottledRetry() {
+        AdaptiveRetryStrategy strategy = AdaptiveRetryStrategy.builder()
+            .maxAttempts(3)
+            .retryOnExceptionInstanceOf(RuntimeException.class)
+            .backoffStrategy(BackoffStrategy.retryImmediately())
+            .throttlingBackoffStrategy(BackoffStrategy.retryImmediately())
+            .treatAsThrottling(ThrottlingFailure.class::isInstance)
+            .useClientDefaults(false)
+            .build();
+        RetryToken initialToken = strategy.acquireInitialToken(AcquireInitialTokenRequest.create("adaptive-success"))
+            .token();
+        RefreshRetryTokenResponse retry = strategy.refreshRetryToken(
+            refreshRequest(initialToken, new ThrottlingFailure()).build());
+
+        RecordSuccessResponse success = strategy.recordSuccess(RecordSuccessRequest.create(retry.token()));
+
+        assertThat(success.token()).isNotNull();
+        assertThat(success.token()).isNotSameAs(retry.token());
+    }
+
+    @Test
+    void strategiesAndTokensExposeReadableDiagnosticStrings() {
+        StandardRetryStrategy strategy = StandardRetryStrategy.builder()
+            .maxAttempts(2)
+            .useClientDefaults(false)
+            .retryOnExceptionInstanceOf(RuntimeException.class)
+            .backoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(Duration.ofMillis(4)))
+            .throttlingBackoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(Duration.ofMillis(14)))
+            .treatAsThrottling(ThrottlingFailure.class::isInstance)
+            .circuitBreakerEnabled(false)
+            .build();
+
+        RetryToken initialToken = strategy.acquireInitialToken(AcquireInitialTokenRequest.create("diagnostic-scope"))
+            .token();
+        RefreshRetryTokenResponse retry = strategy.refreshRetryToken(
+            refreshRequest(initialToken, new RuntimeException("diagnostic failure")).build());
+
+        assertThat(strategy.toString())
+            .contains("BaseRetryStrategy", "maxAttempts=2", "circuitBreakerEnabled=false", "useClientDefaults=false")
+            .contains("backoffStrategy", "throttlingBackoffStrategy");
+        assertThat(initialToken.toString())
+            .contains("StandardRetryToken", "scope=diagnostic-scope", "attempt=1", "capacityAcquired=0");
+        assertThat(retry.token().toString())
+            .contains("StandardRetryToken", "scope=diagnostic-scope", "attempt=2", "diagnostic failure");
+    }
+
     private static RefreshRetryTokenRequest.Builder refreshRequest(RetryToken token, Throwable failure) {
         return RefreshRetryTokenRequest.builder()
             .token(token)
@@ -504,6 +673,11 @@ public class RetriesTest {
             AcquireInitialTokenRequest.create("success-" + failure.getClass().getName()))
             .token();
         assertThat(strategy.refreshRetryToken(refreshRequest(token, failure).build()).token()).isNotNull();
+    }
+
+    private static Duration refreshDelay(RetryStrategy strategy, Throwable failure, String scope) {
+        RetryToken token = strategy.acquireInitialToken(AcquireInitialTokenRequest.create(scope)).token();
+        return strategy.refreshRetryToken(refreshRequest(token, failure).build()).delay();
     }
 
     private static void assertRefreshFails(RetryStrategy strategy, Throwable failure) {
