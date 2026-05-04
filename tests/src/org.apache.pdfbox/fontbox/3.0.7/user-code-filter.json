@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "org.apache.fontbox.**"
+    },
+    {
+      "includeClasses" : "org_apache_pdfbox.fontbox.**"
+    }
+  ]
+}
