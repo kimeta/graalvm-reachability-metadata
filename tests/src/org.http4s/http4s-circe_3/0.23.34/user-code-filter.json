@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "org.http4s.circe.**"
+    },
+    {
+      "includeClasses" : "org_http4s.http4s_circe_3.**"
+    }
+  ]
+}
