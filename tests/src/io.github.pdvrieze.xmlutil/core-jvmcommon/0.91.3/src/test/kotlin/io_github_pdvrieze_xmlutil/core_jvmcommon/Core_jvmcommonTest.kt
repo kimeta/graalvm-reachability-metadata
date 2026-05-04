@@ -13,19 +13,29 @@ import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.XmlEvent
 import nl.adaptivity.xmlutil.XmlReader
 import nl.adaptivity.xmlutil.XmlWriter
+import nl.adaptivity.xmlutil.dom2.Attr
 import nl.adaptivity.xmlutil.dom2.CharacterData
 import nl.adaptivity.xmlutil.dom2.Element
 import nl.adaptivity.xmlutil.dom2.Node
 import nl.adaptivity.xmlutil.dom2.NodeType
+import nl.adaptivity.xmlutil.dom2.attributes
 import nl.adaptivity.xmlutil.dom2.childNodes
+import nl.adaptivity.xmlutil.dom2.data
 import nl.adaptivity.xmlutil.dom2.documentElement
 import nl.adaptivity.xmlutil.dom2.length
+import nl.adaptivity.xmlutil.dom2.name
 import nl.adaptivity.xmlutil.dom2.namespaceURI
+import nl.adaptivity.xmlutil.dom2.nextSibling
 import nl.adaptivity.xmlutil.dom2.nodeName
+import nl.adaptivity.xmlutil.dom2.ownerElement
 import nl.adaptivity.xmlutil.dom2.parentNode
 import nl.adaptivity.xmlutil.dom2.prefix
 import nl.adaptivity.xmlutil.dom2.previousSibling
+import nl.adaptivity.xmlutil.dom2.publicId
+import nl.adaptivity.xmlutil.dom2.systemId
+import nl.adaptivity.xmlutil.dom2.target
 import nl.adaptivity.xmlutil.dom2.textContent
+import nl.adaptivity.xmlutil.dom2.value
 import nl.adaptivity.xmlutil.elementToFragment
 import nl.adaptivity.xmlutil.isElement
 import nl.adaptivity.xmlutil.newWriter
@@ -33,6 +43,9 @@ import nl.adaptivity.xmlutil.readSimpleElement
 import nl.adaptivity.xmlutil.serialize
 import nl.adaptivity.xmlutil.skipElement
 import nl.adaptivity.xmlutil.util.CompactFragment
+import nl.adaptivity.xmlutil.writeAttribute
+import nl.adaptivity.xmlutil.writeListIfNotEmpty
+import nl.adaptivity.xmlutil.writeSimpleElement
 import nl.adaptivity.xmlutil.xmlStreaming
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -318,6 +331,154 @@ public class CoreJvmcommonTest {
                 .forEach { it.writeTo(writer) }
         }
         assertThat(replayed).contains("<events", "e:item", "id=\"42\"", "payload")
+    }
+
+    @Test
+    fun domAttributeNodesCharacterDataAndChildMutationsUpdateTree(): Unit {
+        val document = xmlStreaming.genericDomImplementation.createDocument(STORE_NS, "s:store", null)
+        val root = requireNotNull(document.documentElement)
+
+        val statusAttribute: Attr = document.createAttributeNS(ATTR_NS, "a:status")
+        statusAttribute.value = "draft"
+        assertThat(root.setAttributeNodeNS(statusAttribute)).isNull()
+        assertThat(root.hasAttributeNS(ATTR_NS, "status")).isTrue()
+        val statusOwner: Element = requireNotNull(requireNotNull(root.getAttributeNodeNS(ATTR_NS, "status")).ownerElement)
+        assertThat(statusOwner.nodeName).isEqualTo(root.nodeName)
+        assertThat(requireNotNull(root.attributes.getNamedItemNS(ATTR_NS, "status")).value).isEqualTo("draft")
+
+        val ownerAttribute: Attr = document.createAttribute("owner")
+        ownerAttribute.value = "catalog-team"
+        assertThat(root.attributes.setNamedItem(ownerAttribute)).isNull()
+        assertThat(requireNotNull(root.getAttributeNode("owner")).value).isEqualTo("catalog-team")
+        assertThat(root.attributes.toList()).hasSize(2)
+
+        val label = document.createElementNS(STORE_NS, "s:label")
+        val labelText: CharacterData = document.createTextNode("catalog")
+        labelText.insertData(0, "book ")
+        labelText.appendData(" ready")
+        assertThat(labelText.substringData(5, 7)).isEqualTo("catalog")
+        labelText.replaceData(13, 5, "open")
+        labelText.deleteData(12, 5)
+        label.appendChild(labelText)
+        root.appendChild(label)
+
+        val oldItem = document.createElementNS(STORE_NS, "s:oldItem")
+        val currentItem = document.createElementNS(STORE_NS, "s:currentItem")
+        root.appendChild(oldItem)
+        val replaced: Node = root.replaceChild(currentItem, oldItem)
+        assertThat(replaced.nodeName).isEqualTo("s:oldItem")
+        assertThat(replaced.parentNode).isNull()
+        assertThat(requireNotNull(currentItem.parentNode).nodeName).isEqualTo(root.nodeName)
+
+        val removedOwner: Attr = root.removeAttributeNode(ownerAttribute)
+        assertThat(removedOwner.name).isEqualTo("owner")
+        assertThat(root.hasAttribute("owner")).isFalse()
+        assertThat(root.attributes.toList()).hasSize(1)
+        assertThat(root.textContent).isEqualTo("book catalog")
+        assertThat(root.childNodes.length).isEqualTo(2)
+        assertThat(root.childNodes.toList().map { it.nodeName }).containsExactly("s:label", "s:currentItem")
+    }
+
+    @Test
+    fun writerUtilitiesCreateAttributedContainerAndSimpleChildren(): Unit {
+        val xml: String = buildXml { writer: XmlWriter ->
+            writer.setPrefix("bk", BOOK_NS)
+            writer.startTag(BOOK_NS, "order", "bk")
+            writer.namespaceAttr("bk", BOOK_NS)
+            writer.writeAttribute("id", "order-7")
+            writer.writeAttribute("lineCount", 2L)
+            writer.writeAttribute(QName(BOOK_NS, "category", "bk"), "fiction")
+            writer.writeListIfNotEmpty(
+                listOf("Alpha & Beta", "Gamma < Delta"),
+                BOOK_NS,
+                "lines",
+                "bk",
+            ) { value: String ->
+                writeSimpleElement(BOOK_NS, "line", "bk", value)
+            }
+            writer.endTag(BOOK_NS, "order", "bk")
+        }
+
+        assertThat(xml)
+            .contains("order-7")
+            .contains("lineCount=\"2\"")
+            .contains("Alpha &amp; Beta")
+            .contains("Gamma &lt; Delta")
+
+        xmlStreaming.newGenericReader(xml).use { reader: XmlReader ->
+            moveToStartElement(reader, "order")
+            assertThat(reader.name).isEqualTo(QName(BOOK_NS, "order", "bk"))
+            assertThat(reader.getAttributeValue("", "id")).isEqualTo("order-7")
+            assertThat(reader.getAttributeValue("", "lineCount")).isEqualTo("2")
+            assertThat(reader.getAttributeValue(BOOK_NS, "category")).isEqualTo("fiction")
+
+            assertThat(reader.nextTag()).isEqualTo(EventType.START_ELEMENT)
+            assertThat(reader.name).isEqualTo(QName(BOOK_NS, "lines", "bk"))
+            assertThat(reader.nextTag()).isEqualTo(EventType.START_ELEMENT)
+            assertThat(reader.readSimpleElement()).isEqualTo("Alpha & Beta")
+            assertThat(reader.nextTag()).isEqualTo(EventType.START_ELEMENT)
+            assertThat(reader.readSimpleElement()).isEqualTo("Gamma < Delta")
+            assertThat(reader.nextTag()).isEqualTo(EventType.END_ELEMENT)
+            assertThat(reader.localName).isEqualTo("lines")
+        }
+    }
+
+    @Test
+    fun genericDomSupportsDocumentTypeFragmentsAndProcessingInstructions(): Unit {
+        val implementation = xmlStreaming.genericDomImplementation
+        val documentType = implementation.createDocumentType(
+            "s:store",
+            "-//xmlutil//Store Catalog//EN",
+            "store-catalog.dtd",
+        )
+        val document = implementation.createDocument(STORE_NS, "s:store", null)
+        val root = requireNotNull(document.documentElement)
+
+        assertThat(documentType.name).isEqualTo("s:store")
+        assertThat(documentType.publicId).isEqualTo("-//xmlutil//Store Catalog//EN")
+        assertThat(documentType.systemId).isEqualTo("store-catalog.dtd")
+
+        val instruction = document.createProcessingInstruction("review", "status=\"draft\"")
+        instruction.data = "status=\"published\""
+        root.appendChild(instruction)
+
+        val fragment = document.createDocumentFragment()
+        val paperback = document.createElementNS(STORE_NS, "s:item")
+        paperback.setAttribute("sku", "frag-1")
+        paperback.appendChild(document.createTextNode("Paperback"))
+        val hardback = document.createElementNS(STORE_NS, "s:item")
+        hardback.setAttribute("sku", "frag-2")
+        hardback.appendChild(document.createTextNode("Hardback"))
+        fragment.appendChild(paperback)
+        fragment.appendChild(hardback)
+
+        val appendedFragment = root.appendChild(fragment)
+        assertThat(appendedFragment.nodetype).isEqualTo(NodeType.DOCUMENT_FRAGMENT_NODE)
+        assertThat(fragment.childNodes.length).isEqualTo(0)
+        assertThat(root.childNodes.toList().map { it.nodeName })
+            .containsExactly("review", "s:item", "s:item")
+        assertThat(instruction.target).isEqualTo("review")
+        assertThat(instruction.data).isEqualTo("status=\"published\"")
+        assertThat(requireNotNull(instruction.nextSibling).nodeName).isEqualTo("s:item")
+        assertThat(requireNotNull(hardback.previousSibling).textContent).isEqualTo("Paperback")
+
+        val itemText: MutableList<String> = mutableListOf()
+        var sawProcessingInstruction: Boolean = false
+        xmlStreaming.newReader(document).use { reader: XmlReader ->
+            while (reader.hasNext()) {
+                when (reader.next()) {
+                    EventType.PROCESSING_INSTRUCTION -> sawProcessingInstruction = reader.piTarget == "review" &&
+                        reader.piData == "status=\"published\""
+                    EventType.START_ELEMENT -> if (reader.localName == "item") {
+                        itemText += reader.readSimpleElement()
+                    }
+                    else -> Unit
+                }
+            }
+        }
+
+        assertThat(sawProcessingInstruction).isTrue()
+        assertThat(itemText).containsExactly("Paperback", "Hardback")
     }
 
     private fun buildXml(block: (XmlWriter) -> Unit): String {
