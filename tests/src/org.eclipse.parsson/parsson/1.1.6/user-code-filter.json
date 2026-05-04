@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "org.eclipse.parsson.**"
+    },
+    {
+      "includeClasses" : "org_eclipse_parsson.parsson.**"
+    }
+  ]
+}
