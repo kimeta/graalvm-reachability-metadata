@@ -1,0 +1,16 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.kenai.jnr.x86asm.**"
+    },
+    {
+      "includeClasses" : "jnr.x86asm.**"
+    },
+    {
+      "includeClasses" : "com_github_jnr.jnr_x86asm.**"
+    }
+  ]
+}
