@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "geny.**"
+    },
+    {
+      "includeClasses" : "com_lihaoyi.geny_3.**"
+    }
+  ]
+}
