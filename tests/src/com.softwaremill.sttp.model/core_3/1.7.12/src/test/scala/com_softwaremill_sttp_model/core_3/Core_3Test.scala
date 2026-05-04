@@ -14,6 +14,7 @@ import sttp.model.headers.*
 import sttp.model.sse.ServerSentEvent
 
 import java.net.URI as JavaUri
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import scala.concurrent.duration.*
 
@@ -77,6 +78,27 @@ class Core_3Test {
   }
 
   @Test
+  def uriCustomComponentEncodersChangeRenderingWithoutChangingModelValues(): Unit = {
+    val uri: Uri = Uri("https", "api.example.com", Seq("original"))
+      .withWholePath("/docs v1/chapter two")
+      .withParam("q key", "hello world")
+      .addQuerySegment(Uri.QuerySegment.Value("standalone value"))
+      .fragment("section one")
+
+    val customized: Uri = uri
+      .hostSegmentEncoding(_.replace(".", "-"))
+      .pathSegmentsEncoding(_.replace(" ", "_"))
+      .queryValueSegmentsEncoding(_.replace(" ", "_"))
+      .fragmentSegmentEncoding(_.replace(" ", "_"))
+
+    assertEquals("https://api-example-com/docs_v1/chapter_two?q+key=hello_world&standalone_value#section_one", customized.toString)
+    assertEquals(Some("api.example.com"), customized.host)
+    assertEquals(List("docs v1", "chapter two"), customized.path)
+    assertEquals(Some("hello world"), customized.params.get("q key"))
+    assertEquals(Some("section one"), customized.fragment)
+  }
+
+  @Test
   def uriInterpolatorEncodesInterpolatedValuesByComponent(): Unit = {
     val pathSegment: String = "team a"
     val queryValue: String = "a+b & c"
@@ -88,6 +110,25 @@ class Core_3Test {
     assertEquals(List("files", "team a"), interpolated.path)
     assertEquals(Some("a+b & c"), interpolated.params.get("filter"))
     assertEquals(Some("section 1"), interpolated.fragment)
+  }
+
+  @Test
+  def uriInterpolatorBuildsSchemeAuthorityUserInfoAndPortComponents(): Unit = {
+    val scheme: String = "https"
+    val username: String = "user"
+    val password: String = "secret"
+    val host: String = "api.example.com"
+    val port: Int = 8443
+
+    val interpolated: Uri = uri"$scheme://$username:$password@$host:$port"
+
+    assertEquals("https://user:secret@api.example.com:8443", interpolated.toString)
+    assertEquals(Some(scheme), interpolated.scheme)
+    assertEquals(Some(Uri.UserInfo(username, Some(password))), interpolated.userInfo)
+    assertEquals(Some(host), interpolated.host)
+    assertEquals(Some(port), interpolated.port)
+    assertTrue(interpolated.isAbsolute)
+    assertFalse(interpolated.isRelative)
   }
 
   @Test
@@ -531,6 +572,93 @@ class Core_3Test {
     assertEquals(Some("false"), digest.param("userhash"))
     assertTrue(WWWAuthenticateChallenge.parseSingle("Digest realm=\"api\", opaque=\"o\", qop=\"auth\"").isLeft)
     assertTrue(WWWAuthenticateChallenge.parseSingle("Basic realm=\"a\", charset=\"UTF-8\", extra=\"ignored\"").isLeft)
+  }
+
+  @Test
+  def queryParamsFactoriesCustomRenderingAndUriConvenienceConstructorsCompose(): Unit = {
+    val fromMap: QueryParams = QueryParams.fromMap(Map("first" -> "1", "second" -> "two words"))
+    assertEquals(Map("first" -> "1", "second" -> "two words"), fromMap.toMap)
+
+    val multi: QueryParams = QueryParams
+      .fromMultiSeq(Seq("tag" -> Seq("scala", "native image"), "flag" -> Seq.empty[String]))
+      .param(Map("mode" -> "fast"))
+
+    assertEquals(Some("scala"), multi.get("tag"))
+    assertEquals(Some(Seq("scala", "native image")), multi.getMulti("tag"))
+    assertEquals(Some(Seq.empty[String]), multi.getMulti("flag"))
+    assertEquals(Seq("tag" -> "scala", "tag" -> "native image", "mode" -> "fast"), multi.toSeq)
+    assertEquals(
+      Map("tag" -> Seq("scala", "native image"), "flag" -> Seq.empty[String], "mode" -> Seq("fast")),
+      multi.toMultiMap
+    )
+    assertEquals("?yek=value_with_space", QueryParams.fromSeq(Seq("key" -> "value with space")).toString(_.reverse, _.replace(" ", "_"), includeBoundary = true))
+
+    assertEquals("http://example.com:8080/a/b", Uri("http", "example.com", 8080, Seq("a", "b")).toString)
+    assertEquals("https://example.com/path#fragment", Uri("https", "example.com", Seq("path"), Some("fragment")).toString)
+    assertEquals("/absolute/path?x=1", Uri.relative(Seq("absolute", "path"), Seq(Uri.QuerySegment.KeyValue("x", "1")), None).toString)
+    assertEquals("relative/path#frag", Uri.pathRelative(Seq("relative", "path"), Some("frag")).toString)
+  }
+
+  @Test
+  def headersCollectionAccessCorsFactoriesAndSafeRenderingUseCaseInsensitiveNames(): Unit = {
+    val headers: Headers = Headers(Seq(
+      Header("X-Trace", "one"),
+      Header("x-trace", "two"),
+      Header.contentLength(42),
+      Header.cookie(Cookie("a", "1"), Cookie("b", "2")),
+      Header.authorization("Basic", "dXNlcjpwYXNz")
+    ))
+
+    assertEquals(Some("one"), headers.header("x-trace"))
+    assertEquals(Seq("one", "two"), headers.headers("X-TRACE"))
+    assertEquals(Some(42L), headers.contentLength)
+    assertEquals(Some("a=1; b=2"), headers.header(HeaderNames.Cookie))
+    assertTrue(HeaderNames.isSensitive(HeaderNames.Authorization))
+    assertTrue(HeaderNames.isSensitive(Header("X-Api-Key", "secret"), Set("x-api-key")))
+    assertFalse(HeaderNames.isContent(Header.accept("application/json")))
+    assertEquals("X-Api-Key: ***", Header("X-Api-Key", "secret").toStringSafe(Set("x-api-key")))
+
+    assertEquals(Header(HeaderNames.AccessControlAllowCredentials, "true"), Header.accessControlAllowCredentials(true))
+    assertEquals(Header(HeaderNames.AccessControlAllowOrigin, "https://example.com"), Header.accessControlAllowOrigin("https://example.com"))
+    assertEquals(Header(HeaderNames.AccessControlExposeHeaders, "X-Trace, X-Request"), Header.accessControlExposeHeaders("X-Trace", "X-Request"))
+    assertEquals(Header(HeaderNames.AccessControlMaxAge, "300"), Header.accessControlMaxAge(300))
+    assertEquals(Header(HeaderNames.AccessControlRequestHeaders, "X-Trace, X-Request"), Header.accessControlRequestHeaders("X-Trace", "X-Request"))
+    assertEquals(Header(HeaderNames.AccessControlRequestMethod, "POST"), Header.accessControlRequestMethod(Method.POST))
+  }
+
+  @Test
+  def constantsAndStandardMediaTypesExposeStableHttpModelValues(): Unit = {
+    assertEquals("gzip", Encodings.Gzip)
+    assertEquals("compress", Encodings.Compress)
+    assertEquals("deflate", Encodings.Deflate)
+    assertEquals("br", Encodings.Br)
+    assertEquals("identity", Encodings.Identity)
+    assertEquals("*", Encodings.Wildcard)
+
+    assertEquals("Basic", AuthenticationScheme.Basic.name)
+    assertEquals("Bearer", AuthenticationScheme.Bearer.name)
+    assertEquals("Digest", AuthenticationScheme.Digest.name)
+    assertEquals(0, HttpVersion.ordinal(HttpVersion.HTTP_1))
+    assertEquals(1, HttpVersion.ordinal(HttpVersion.HTTP_1_1))
+    assertEquals(2, HttpVersion.ordinal(HttpVersion.HTTP_2))
+    assertEquals(3, HttpVersion.ordinal(HttpVersion.HTTP_3))
+
+    assertEquals(204, StatusCode.NoContent.code)
+    assertEquals(299, StatusCode(299).code)
+    assertTrue(StatusCode(299).isSuccess)
+    assertTrue(StatusCode.PermanentRedirect.isRedirect)
+    assertTrue(StatusCode.TooManyRequests.isClientError)
+    assertEquals(Some("Too Many Requests"), StatusText.default(StatusCode.TooManyRequests))
+    assertEquals(599, right(StatusCode.safeApply(599)).code)
+    assertTrue(StatusCode.safeApply(600).isLeft)
+
+    val htmlUtf8: MediaType = MediaType.TextHtml.charset(StandardCharsets.UTF_8)
+    assertEquals(Some("UTF-8"), htmlUtf8.charset)
+    assertEquals("text/html; charset=UTF-8", htmlUtf8.toString)
+    assertEquals(MediaType.TextHtml, htmlUtf8.noCharset)
+    assertEquals(MediaType.ApplicationXWwwFormUrlencoded, right(MediaType.parse("application/x-www-form-urlencoded")))
+    assertEquals(MediaType.ImagePng, right(MediaType.parse("image/png")))
+    assertEquals(MediaType.TextEventStream, right(MediaType.parse("text/event-stream")))
   }
 
   private def right[A](either: Either[String, A]): A = either match {
