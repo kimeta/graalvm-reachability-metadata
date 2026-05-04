@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "org.apache.camel.util.**"
+    },
+    {
+      "includeClasses" : "org_apache_camel.camel_util.**"
+    }
+  ]
+}
