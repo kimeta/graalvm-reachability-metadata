@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "org.apache.pdfbox.io.**"
+    },
+    {
+      "includeClasses" : "org_apache_pdfbox.pdfbox_io.**"
+    }
+  ]
+}
