@@ -1,0 +1,13 @@
+{
+  "rules" : [
+    {
+      "excludeClasses" : "**"
+    },
+    {
+      "includeClasses" : "com.aayushatharva.brotli4j.service.**"
+    },
+    {
+      "includeClasses" : "com_aayushatharva_brotli4j.service.**"
+    }
+  ]
+}
