@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class Retries_spiTest {
+    private static final Duration ONE_MILLI = Duration.ofMillis(1);
     private static final Duration FIFTY_MILLIS = Duration.ofMillis(50);
     private static final Duration HUNDRED_MILLIS = Duration.ofMillis(100);
     private static final Duration TWO_HUNDRED_MILLIS = Duration.ofMillis(200);
@@ -48,6 +49,23 @@ public class Retries_spiTest {
         assertThat(successResponse.token()).isSameAs(token);
         assertThat(refreshResponse.token()).isSameAs(token);
         assertThat(refreshResponse.delay()).isEqualTo(HUNDRED_MILLIS);
+    }
+
+    @Test
+    void factoriesTreatScopeAsOpaqueAndAllowZeroDelays() {
+        RetryToken token = new TestRetryToken("zero-delay");
+
+        AcquireInitialTokenRequest emptyScopeRequest = AcquireInitialTokenRequest.create("");
+        AcquireInitialTokenRequest spacedScopeRequest = AcquireInitialTokenRequest.create("  scoped operation  ");
+        AcquireInitialTokenResponse initialResponse = AcquireInitialTokenResponse.create(token, Duration.ZERO);
+        RefreshRetryTokenResponse refreshResponse = RefreshRetryTokenResponse.create(token, Duration.ZERO);
+
+        assertThat(emptyScopeRequest.scope()).isEmpty();
+        assertThat(spacedScopeRequest.scope()).isEqualTo("  scoped operation  ");
+        assertThat(initialResponse.token()).isSameAs(token);
+        assertThat(initialResponse.delay()).isEqualTo(Duration.ZERO);
+        assertThat(refreshResponse.token()).isSameAs(token);
+        assertThat(refreshResponse.delay()).isEqualTo(Duration.ZERO);
     }
 
     @Test
@@ -92,6 +110,22 @@ public class Retries_spiTest {
         assertThat(request.token()).isSameAs(token);
         assertThat(request.failure()).isSameAs(failure);
         assertThat(request.suggestedDelay()).contains(Duration.ZERO);
+    }
+
+    @Test
+    void refreshRetryTokenRequestBuilderMethodsAreChainable() {
+        RetryToken token = new TestRetryToken("retry");
+        RuntimeException failure = new RuntimeException("failure");
+        RefreshRetryTokenRequest.Builder builder = RefreshRetryTokenRequest.builder();
+
+        assertThat(builder.token(token)).isSameAs(builder);
+        assertThat(builder.suggestedDelay(FIFTY_MILLIS)).isSameAs(builder);
+        assertThat(builder.failure(failure)).isSameAs(builder);
+
+        RefreshRetryTokenRequest request = builder.build();
+        assertThat(request.token()).isSameAs(token);
+        assertThat(request.suggestedDelay()).contains(FIFTY_MILLIS);
+        assertThat(request.failure()).isSameAs(failure);
     }
 
     @Test
@@ -195,6 +229,17 @@ public class Retries_spiTest {
     }
 
     @Test
+    void exponentialBackoffCapsAttemptGrowthBeforeIntegerOverflow() {
+        BackoffStrategy strategy = BackoffStrategy.exponentialDelayWithoutJitter(
+                ONE_MILLI, Duration.ofMillis(Integer.MAX_VALUE));
+        Duration highestCalculatedDelay = Duration.ofMillis(1L << 28);
+
+        assertThat(strategy.computeDelay(30)).isEqualTo(highestCalculatedDelay);
+        assertThat(strategy.computeDelay(31)).isEqualTo(highestCalculatedDelay);
+        assertThat(strategy.computeDelay(Integer.MAX_VALUE)).isEqualTo(highestCalculatedDelay);
+    }
+
+    @Test
     void jitteredExponentialBackoffStaysWithinDocumentedRanges() {
         BackoffStrategy fullJitter = BackoffStrategy.exponentialDelay(HUNDRED_MILLIS, ONE_SECOND);
         BackoffStrategy halfJitter = BackoffStrategy.exponentialDelayHalfJitter(HUNDRED_MILLIS, ONE_SECOND);
@@ -264,6 +309,37 @@ public class Retries_spiTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> BackoffStrategy.exponentialDelayHalfJitter(HUNDRED_MILLIS, Duration.ofMillis(-1)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void backoffStrategyFactoriesRejectNullDurations() {
+        assertThatThrownBy(() -> BackoffStrategy.fixedDelayWithoutJitter(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BackoffStrategy.fixedDelay(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BackoffStrategy.exponentialDelayWithoutJitter(null, ONE_SECOND))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BackoffStrategy.exponentialDelay(HUNDRED_MILLIS, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BackoffStrategy.exponentialDelayHalfJitter(null, ONE_SECOND))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void exponentialBackoffUsesMaximumDelayWhenMaximumIsLowerThanBase() {
+        BackoffStrategy withoutJitter = BackoffStrategy.exponentialDelayWithoutJitter(ONE_SECOND, HUNDRED_MILLIS);
+        BackoffStrategy fullJitter = BackoffStrategy.exponentialDelay(ONE_SECOND, HUNDRED_MILLIS);
+        BackoffStrategy halfJitter = BackoffStrategy.exponentialDelayHalfJitter(ONE_SECOND, HUNDRED_MILLIS);
+
+        assertThat(withoutJitter.computeDelay(1)).isEqualTo(Duration.ZERO);
+        assertThat(withoutJitter.computeDelay(2)).isEqualTo(HUNDRED_MILLIS);
+        assertThat(withoutJitter.computeDelay(10)).isEqualTo(HUNDRED_MILLIS);
+        assertThat(fullJitter.computeDelay(2))
+                .isGreaterThanOrEqualTo(Duration.ZERO)
+                .isLessThan(HUNDRED_MILLIS);
+        assertThat(halfJitter.computeDelay(2))
+                .isGreaterThanOrEqualTo(FIFTY_MILLIS)
+                .isLessThanOrEqualTo(HUNDRED_MILLIS);
     }
 
     @Test
@@ -353,6 +429,40 @@ public class Retries_spiTest {
     }
 
     @Test
+    void retryStrategyBuilderRootCausePredicatesRequireACauseChain() {
+        TestRetryStrategyBuilder builder = new TestRetryStrategyBuilder();
+
+        builder.retryOnRootCause(IllegalArgumentException.class);
+        assertThat(builder.shouldRetry(new IllegalArgumentException("direct root candidate"))).isFalse();
+        assertThat(builder.shouldRetry(new RuntimeException("outer", new IllegalArgumentException("root")))).isTrue();
+
+        builder.retryOnRootCauseInstanceOf(IllegalArgumentException.class);
+        assertThat(builder.shouldRetry(new NumberFormatException("direct subclass root candidate"))).isFalse();
+        assertThat(builder.shouldRetry(new RuntimeException(
+                "outer", new NumberFormatException("subclass root")))).isTrue();
+    }
+
+    @Test
+    void retryStrategyBuilderSupportsConsumerBasedMutation() {
+        TestRetryStrategyBuilder builder = new TestRetryStrategyBuilder();
+
+        TestRetryStrategyBuilder returnedBuilder = builder.applyMutation(mutableBuilder -> mutableBuilder
+                .retryOnExceptionInstanceOf(IllegalArgumentException.class)
+                .maxAttempts(3)
+                .backoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(FIFTY_MILLIS))
+                .throttlingBackoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(HUNDRED_MILLIS))
+                .treatAsThrottling(IllegalStateException.class::isInstance));
+        TestRetryStrategy strategy = returnedBuilder.build();
+
+        assertThat(returnedBuilder).isSameAs(builder);
+        assertThat(strategy.maxAttempts()).isEqualTo(3);
+        assertThat(strategy.shouldRetry(new NumberFormatException("subclass"))).isTrue();
+        assertThat(strategy.acquireInitialToken(AcquireInitialTokenRequest.create("mutated")).delay())
+                .isEqualTo(FIFTY_MILLIS);
+        assertThat(strategy.isThrottling(new IllegalStateException("throttled"))).isTrue();
+    }
+
+    @Test
     void retryStrategyBuilderUseClientDefaultsDefaultMethodIsChainable() {
         TestRetryStrategyBuilder builder = new TestRetryStrategyBuilder();
 
@@ -387,6 +497,30 @@ public class Retries_spiTest {
         assertThat(copied.isThrottling(new IllegalStateException("throttle"))).isTrue();
         assertThat(copied.acquireInitialToken(AcquireInitialTokenRequest.create("copy")).delay())
                 .isEqualTo(FIFTY_MILLIS);
+    }
+
+    @Test
+    void retryStrategyUsesDefaultZeroSuggestedDelayWhenNoneIsConfigured() {
+        TestRetryStrategy strategy = new TestRetryStrategyBuilder()
+                .backoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(HUNDRED_MILLIS))
+                .throttlingBackoffStrategy(BackoffStrategy.fixedDelayWithoutJitter(TWO_HUNDRED_MILLIS))
+                .treatAsThrottling(IllegalStateException.class::isInstance)
+                .build();
+        RetryToken token = new TestRetryToken("retry");
+
+        RefreshRetryTokenResponse regularRetry = strategy.refreshRetryToken(RefreshRetryTokenRequest.builder()
+                .token(token)
+                .failure(new RuntimeException("regular failure"))
+                .build());
+        RefreshRetryTokenResponse throttledRetry = strategy.refreshRetryToken(RefreshRetryTokenRequest.builder()
+                .token(token)
+                .failure(new IllegalStateException("throttled"))
+                .build());
+
+        assertThat(regularRetry.token()).isSameAs(token);
+        assertThat(regularRetry.delay()).isEqualTo(Duration.ZERO);
+        assertThat(throttledRetry.token()).isSameAs(token);
+        assertThat(throttledRetry.delay()).isEqualTo(Duration.ZERO);
     }
 
     @Test
