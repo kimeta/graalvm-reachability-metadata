@@ -1,0 +1,66 @@
+name: code-coverage-baseline
+version: 1.0.0
+description: Unguided control arm for the code coverage workflow - the agent gets the library main jar and the JaCoCo report, nothing else.
+
+inputs:
+  - name: repo
+    description: GitHub repository containing the source issue, in owner/name form.
+    type: string
+    default: oracle/graalvm-reachability-metadata
+    validate: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+
+  - name: issue_number
+    description: GitHub issue number to convert. The issue must carry code-coverage-improvement.
+    type: number
+    validate: "[1-9][0-9]*"
+
+  - name: coordinate
+    description: Optional Maven coordinate override. Leave empty to parse group:artifact:version from the issue body.
+    type: string
+    default: ""
+    validate: "^$|^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+$"
+
+  - name: issue_label
+    description: Label that identifies code coverage improvement issues.
+    type: string
+    default: code-coverage-improvement
+    validate: "^[A-Za-z0-9_.-]+$"
+
+  - name: repo_checkout
+    description: Path to the source graalvm-reachability-metadata checkout, relative to the rendered workspace or absolute.
+    type: string
+    default: ../..
+
+  - name: work_subdir
+    description: Subdirectory inside each issue worktree where Forge code and docs live.
+    type: string
+    default: forge
+    validate: "^[A-Za-z0-9_./-]+$"
+
+  - name: worktree_root
+    description: Directory where per-issue worktrees are created or reused, relative to the rendered workspace or absolute.
+    type: string
+    default: ../../.agents/worktrees
+
+  - name: worker_agent
+    description: Agent used for execution, cover, and fix states. Must match the guided arm for the comparison to hold.
+    type: string
+    default: pi:openai-codex/gpt-5.6-sol
+
+  - name: coverage_iterations
+    description: Fixed number of cover passes; measurement completes the run when the budget is spent or nothing uncovered remains.
+    type: number
+    default: 10
+    validate: "[1-9][0-9]*"
+
+  - name: measure_visits
+    description: Hard visit cap on the measurement loop and its fix state, bounding cover and repair re-runs.
+    type: number
+    default: 16
+    validate: "[1-9][0-9]*"
+
+  - name: fix_passes
+    description: Maximum automated fix passes when finalization fails.
+    type: number
+    default: 2
+    validate: "[1-9][0-9]*"

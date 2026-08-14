@@ -167,3 +167,14 @@ gates (§FS-local-ci-equivalent-verification), and metrics that keep JaCoCo
 coverage results separate from sampled-path guidance while recording generated
 test paths, strategy, model, target outcomes, and verification commands
 (§WF-code-coverage-improvement.5).
+
+That workflow's signal stack — API inventory, unlock ranking, receiver
+obtainability, sampled-PGO routes, and the phase split — has only ever been
+measured against itself, and recorded runs put most of the coverage gain outside
+the classes its prompts name. The unguided baseline (§WF-code-coverage-baseline)
+is its control arm: same coordinate, agent, suite location, and finalization
+gate, but the agent receives only the library's extracted main sources and the
+raw JaCoCo report. It scores both arms on one denominator — JaCoCo methods
+intersected with the classes the main jar declares (§WF-code-coverage-baseline.3.2)
+— and publishes to a fork rather than upstream, because its product is a
+measurement rather than a contribution (§WF-code-coverage-baseline.2).

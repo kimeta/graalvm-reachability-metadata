@@ -1,0 +1,549 @@
+# State machine diagram
+# ---------------------
+#
+# Pipeline tasks (convert, prepare):
+#   prepared -> execute -> completed / human-intervention
+#
+# Coverage loop (one task, no phase split):
+#   measure -- 0 (budget spent or nothing uncovered) -> completed
+#     |  ^     \-- 10 (uncovered library methods remain) -> cover --+
+#     |  +----------------------------------------------------------+
+#     +-- step failed (exit 1-3) -> fix -> measure
+#         (budget exhausted -> human-intervention)
+#
+# Measurement steps: 1 conversion record, 2 library jar record, 3 Gradle JaCoCo
+# run and neutral score.
+#
+# Finalization:
+#   finalize -- 0 -> completed
+#     (exit N names the failed step -> finalize-fix -> re-run)
+#
+# This is the control arm of §WF-code-coverage-baseline. It keeps the guided
+# workflow's soundness property - only re-measurement moves the loop forward -
+# and drops everything that is guidance: inventory, ranking, eligibility,
+# sampled-PGO routes, and the API/deep phase split. The agent sees the library
+# main jar and the JaCoCo XML; the score is written where it cannot read it.
+
+name: code-coverage-baseline
+version: 1.0.0
+
+states:
+  prepared:
+    description: Pipeline task is generated and ready for execution.
+    initial: true
+    concurrent: true
+    program: "true"
+
+  execute:
+    description: Execute one pipeline task (conversion or preparation).
+    target: "{{worker_agent}}"
+    concurrent: true
+    instructions: |
+      Execute pipeline Task {task_id}: {task_title}.
+
+      Read the task body and prior runtime artifacts under
+      `runtime/code-coverage-baseline/`.
+
+      Rules:
+      - Keep code edits inside the resolved issue worktree.
+      - Keep Rhei artifacts under `runtime/code-coverage-baseline/` in this
+        workspace.
+      - Do not analyse the library, rank anything, or prepare coverage targets.
+        This workflow is the unguided control arm: preparation resolves paths
+        and the library jar, nothing more (§WF-code-coverage-baseline.3.1).
+      - If a required artifact cannot be produced, record the blocker and
+        request `human-intervention`.
+
+      Artifact paths in this task, including the one below, are relative to the
+      Rhei workspace root: the directory holding `states.yaml` and
+      `index.rhei.md`, which is
+      `{{work_subdir}}/code-coverage-baseline-{{issue_number}}` from your
+      working directory. Resolve every artifact path against that directory. Do
+      not prefix it with the workspace directory name alone, and do not guess a
+      prefix from your working directory.
+
+      Write `{output.work.path}` with:
+      - source issue URL
+      - coordinate and coverage suite path
+      - worktree and work path used
+      - files inspected or changed
+      - artifacts written
+      - commands run and results
+      - remaining risk or human follow-up
+    outputs:
+      - name: work
+        path: runtime/code-coverage-baseline/work/{task_id}.md
+        description: Execution summary for one pipeline task.
+
+  measure:
+    description: Run the JaCoCo tasks, score the library universe, and decide whether the loop continues.
+    concurrent: true
+    visits: {{measure_visits}}
+    program: |
+      python3 - "$RHEI_INPUT_CONVERSION_PATH" "$RHEI_INPUT_LIBRARY_PATH" <<'PY'
+      import json
+      import subprocess
+      import os
+      import sys
+      from pathlib import Path
+
+      def fail(step: int, message: str) -> None:
+          print(f"step {step}: {message}", file=sys.stderr)
+          sys.exit(step)
+
+      # Step 1: read the conversion record.
+      try:
+          conversion = json.load(open(sys.argv[1]))
+          coordinate = conversion["coordinate"]
+          worktree = conversion["worktreePath"]
+          work_path = conversion["workPath"]
+      except Exception as error:
+          fail(1, f"conversion.json missing or invalid: {error}")
+
+      # Step 2: read the resolved main jar. The scorer drops classifier jars of
+      # its own, but a record without any jar cannot be scored at all.
+      try:
+          library_jars = json.load(open(sys.argv[2]))["libraryJars"]
+      except Exception as error:
+          fail(2, f"library.json missing or has no libraryJars: {error}")
+      if not library_jars:
+          fail(2, "library.json records no library jars")
+
+      score_dir = Path("runtime/code-coverage-baseline/score")
+      report_dir = Path("runtime/code-coverage-baseline/report")
+      score_dir.mkdir(parents=True, exist_ok=True)
+      iteration = len(list(score_dir.glob("baseline-report-*.json")))
+
+      # Step 3: Gradle JaCoCo run plus the neutral score. The scorer writes the
+      # agent-visible JaCoCo XML into report_dir and the score into score_dir,
+      # which the cover state is not told about (§WF-code-coverage-baseline.3.2).
+      helper = [
+          sys.executable, f"{work_path}/utility_scripts/code_coverage_baseline_score.py",
+          "--repo-path", worktree,
+          "--coordinate", coordinate,
+          "--iteration", str(iteration),
+          "--output-dir", str(score_dir),
+          "--jacoco-dir", str(report_dir),
+      ]
+      for jar in library_jars:
+          helper += ["--library-jar", jar]
+      if iteration:
+          helper += ["--baseline-report", str(score_dir / "baseline-report-0.json")]
+      print(f"[measure] iteration {iteration}: {' '.join(helper)}", flush=True)
+      try:
+          if subprocess.run(helper, env=dict(os.environ, PYTHONPATH=work_path)).returncode != 0:
+              fail(3, "code_coverage_baseline_score.py failed")
+      except OSError as error:
+          fail(3, f"code_coverage_baseline_score.py could not run: {error}")
+
+      report_path = score_dir / f"baseline-report-{iteration}.json"
+      if not report_path.is_file():
+          fail(3, f"scorer wrote no report at {report_path}")
+      summary = json.load(open(report_path))["summary"]
+      print(
+          f"[measure] iteration {iteration}: {summary['covered']}/{summary['libraryMethods']} "
+          f"covered ({summary['coveredPercent']}%), {summary['uncovered']} uncovered",
+          flush=True,
+      )
+
+      # Fixed pass budget, spent in one undifferentiated loop. A constant cannot
+      # drift when a measurement definition moves (§WF-code-coverage-baseline.3.3).
+      budget = {{coverage_iterations}}
+      print(f"[measure] iteration budget {budget}", flush=True)
+      if not summary["uncovered"] or iteration >= budget:
+          sys.exit(0)
+      sys.exit(10)
+      PY
+    program_timeout: 60m
+    inputs:
+      - name: conversion
+        path: runtime/code-coverage-baseline/issues/conversion.json
+      - name: library
+        path: runtime/code-coverage-baseline/prepare/library.json
+
+  cover:
+    description: Write tests that raise library coverage, guided by nothing but the jar and the JaCoCo report.
+    target: "{{worker_agent}}"
+    concurrent: true
+    visits: {{coverage_iterations}}
+    instructions: |
+      Increase code coverage of the library for Task {task_id}: {task_title}.
+
+      You are given exactly two things about the library
+      (§WF-code-coverage-baseline.3.1):
+      - its main sources, extracted as `.java` files under the `sourcesDir`
+        named in `runtime/code-coverage-baseline/prepare/library.json`. When
+        that record says `sourcesAvailable` is false, the library publishes no
+        sources artifact and its `libraryJars` are all you have.
+      - the current JaCoCo XML report at `{input.jacoco.path}`, rewritten before
+        this pass.
+
+      Resolved worktree and coverage-suite paths are in
+      `runtime/code-coverage-baseline/issues/conversion.json`.
+
+      Decide for yourself what to cover and how. The report is the only coverage
+      evidence; parse it however you like.
+
+      Rules:
+      - Add or edit test classes only under the tracked extension suite
+        `code-coverage-improvement/src/test/java` inside the coordinate's
+        indexed test project (`coverageSuiteRepoRelativePath` in
+        conversion.json); never touch the regular `src/test` sources.
+      - Target meaningful library behavior with real assertions, not superficial
+        coverage hits.
+      - Do not weaken metadata-generation tests.
+      - Do not measure or claim coverage yourself: deterministic re-measurement
+        runs right after this state and decides the loop.
+
+      Artifact paths in this task, including the one below, are relative to the
+      Rhei workspace root: the directory holding `states.yaml` and
+      `index.rhei.md`, which is
+      `{{work_subdir}}/code-coverage-baseline-{{issue_number}}` from your
+      working directory. Resolve every artifact path against that directory. Do
+      not prefix it with the workspace directory name alone, and do not guess a
+      prefix from your working directory.
+
+      Write `{output.work.path}` with:
+      - what you chose to cover and why
+      - files changed
+      - commands run and results
+      - remaining risk
+    inputs:
+      - name: jacoco
+        path: runtime/code-coverage-baseline/report/jacoco.xml
+    outputs:
+      - name: work
+        path: runtime/code-coverage-baseline/work/{task_id}-cover-{visit_count}.md
+        description: Cover-pass summary for one iteration.
+
+  fix:
+    description: Repair the cause of a failed measurement step.
+    target: "{{worker_agent}}"
+    concurrent: true
+    visits: {{measure_visits}}
+    instructions: |
+      Fix the measurement failure for Task {task_id}: {task_title}.
+
+      The deterministic measurement failed. Its stderr in the latest state log
+      names the failed step:
+      - step 1: `runtime/code-coverage-baseline/issues/conversion.json` is
+        missing or invalid - repair it from the conversion task evidence.
+      - step 2: `runtime/code-coverage-baseline/prepare/library.json` records no
+        usable `libraryJars` - re-resolve them with
+        `./gradlew listLibraryJars -Pcoordinates=<coordinate>` and rewrite the
+        record; never hand-write a jar path that does not exist.
+      - step 3: the Gradle JaCoCo run or the score failed - fix the generated
+        coverage tests in the issue worktree; do not weaken or delete meaningful
+        assertions, and never hand-craft reports.
+
+      Fix only that cause. Measurement re-runs automatically after this state.
+
+      Artifact paths in this task, including the one below, are relative to the
+      Rhei workspace root: the directory holding `states.yaml` and
+      `index.rhei.md`, which is
+      `{{work_subdir}}/code-coverage-baseline-{{issue_number}}` from your
+      working directory. Resolve every artifact path against that directory. Do
+      not prefix it with the workspace directory name alone, and do not guess a
+      prefix from your working directory.
+
+      Write `{output.fix.path}` with:
+      - failure addressed
+      - files changed
+      - commands run and results
+      - residual risk
+    inputs:
+      - name: conversion
+        path: runtime/code-coverage-baseline/issues/conversion.json
+    outputs:
+      - name: fix
+        path: runtime/code-coverage-baseline/fixes/{task_id}-{visit_count}.md
+        description: Fixes applied after a failed measurement step.
+
+  finalize:
+    description: Run checkstyle, the JVM tests, and the final score; a nonzero exit code names the failed step.
+    concurrent: true
+    visits: {{fix_passes}}
+    program: |
+      python3 - "$RHEI_INPUT_CONVERSION_PATH" "$RHEI_INPUT_LIBRARY_PATH" <<'PY'
+      import json
+      import os
+      import shutil
+      import subprocess
+      import sys
+      from pathlib import Path
+
+      def fail(step: int, message: str) -> None:
+          print(f"step {step}: {message}", file=sys.stderr)
+          sys.exit(step)
+
+      # Step 1: read the conversion and library records.
+      try:
+          conversion = json.load(open(sys.argv[1]))
+          coordinate = conversion["coordinate"]
+          worktree = conversion["worktreePath"]
+          work_path = conversion["workPath"]
+          library_jars = json.load(open(sys.argv[2]))["libraryJars"]
+      except Exception as error:
+          fail(1, f"conversion.json or library.json missing or invalid: {error}")
+
+      def gradle(step: int, task: str) -> None:
+          command = ["./gradlew", task, f"-Pcoordinates={coordinate}", "--stacktrace"]
+          print(f"[finalize] {' '.join(command)}", flush=True)
+          try:
+              if subprocess.run(command, cwd=worktree).returncode != 0:
+                  fail(step, f"gradle task '{task}' failed")
+          except OSError as error:
+              fail(step, f"gradle task '{task}' could not run: {error}")
+
+      # Step 2: style, over the tracked coverage suite source set as well.
+      gradle(2, "checkstyle")
+
+      # Step 3: the regular JVM tests and the tracked extension suite must pass.
+      gradle(3, "javaTest")
+      gradle(3, "codeCoverageTest")
+
+      # Step 4: final score against iteration 0, without re-running the tasks.
+      score_dir = Path("runtime/code-coverage-baseline/score")
+      finalization = Path("runtime/code-coverage-baseline/finalization")
+      finalization.mkdir(parents=True, exist_ok=True)
+      iteration = len(list(score_dir.glob("baseline-report-*.json")))
+      helper = [
+          sys.executable, f"{work_path}/utility_scripts/code_coverage_baseline_score.py",
+          "--repo-path", worktree,
+          "--coordinate", coordinate,
+          "--iteration", str(iteration),
+          "--output-dir", str(finalization),
+          "--baseline-report", str(score_dir / "baseline-report-0.json"),
+          "--skip-gradle",
+      ]
+      for jar in library_jars:
+          helper += ["--library-jar", jar]
+      print(f"[finalize] {' '.join(helper)}", flush=True)
+      try:
+          if subprocess.run(helper, env=dict(os.environ, PYTHONPATH=work_path)).returncode != 0:
+              fail(4, "code_coverage_baseline_score.py failed")
+      except OSError as error:
+          fail(4, f"code_coverage_baseline_score.py could not run: {error}")
+
+      for suffix, name in ((".json", "final-score.json"), (".md", "final-summary.md")):
+          produced = finalization / f"baseline-report-{iteration}{suffix}"
+          if not produced.is_file():
+              fail(4, f"scorer wrote no {produced}")
+          shutil.copy(produced, finalization / name)
+      PY
+    program_timeout: 90m
+    inputs:
+      - name: conversion
+        path: runtime/code-coverage-baseline/issues/conversion.json
+      - name: library
+        path: runtime/code-coverage-baseline/prepare/library.json
+
+  finalize-fix:
+    description: Repair the cause of a failed finalization step.
+    target: "{{worker_agent}}"
+    concurrent: true
+    visits: {{fix_passes}}
+    instructions: |
+      Fix the finalization failure for Task {task_id}: {task_title}.
+
+      The deterministic finalization program failed. Its stderr in the latest
+      state log names the failed step:
+      - step 1: `runtime/code-coverage-baseline/issues/conversion.json` or
+        `runtime/code-coverage-baseline/prepare/library.json` is missing or
+        invalid - repair it from the pipeline task evidence.
+      - step 2: checkstyle failed - fix the style violations in the generated
+        coverage tests; do not suppress or weaken the checkstyle rules.
+      - step 3: JVM tests failed - fix the generated coverage tests in the issue
+        worktree; do not weaken or delete meaningful assertions.
+      - step 4: the scorer failed - repair the inputs it rejected; never edit its
+        output by hand.
+
+      Fix only that cause. The finalization steps re-run from the start after
+      this state.
+
+      Artifact paths in this task, including the one below, are relative to the
+      Rhei workspace root: the directory holding `states.yaml` and
+      `index.rhei.md`, which is
+      `{{work_subdir}}/code-coverage-baseline-{{issue_number}}` from your
+      working directory. Resolve every artifact path against that directory. Do
+      not prefix it with the workspace directory name alone, and do not guess a
+      prefix from your working directory.
+
+      Write `{output.fix.path}` with:
+      - failure addressed
+      - files changed
+      - commands run and results
+      - residual risk
+    inputs:
+      - name: conversion
+        path: runtime/code-coverage-baseline/issues/conversion.json
+    outputs:
+      - name: fix
+        path: runtime/code-coverage-baseline/fixes/{task_id}-finalize-{visit_count}.md
+        description: Fixes applied after a failed finalization step.
+
+  human-intervention:
+    description: Human decision or manual repair is required.
+    gating: true
+    instructions: |
+      Stop autonomous work on Task {task_id}: {task_title}.
+
+      A human must review the task body, the latest work artifact under
+      `runtime/code-coverage-baseline/work/`, and the score artifacts when they
+      exist. Do not transition out of this state autonomously.
+
+  completed:
+    description: Work is complete.
+    final: true
+
+  cancelled:
+    description: Work was cancelled.
+    final: true
+
+transitions:
+  - from: prepared
+    to: execute
+    description: Pipeline task enters execution.
+
+  - from: execute
+    to: completed
+    description: Pipeline task wrote its artifacts.
+
+  - from: execute
+    to: human-intervention
+    description: A required artifact is missing or failed.
+
+  - from: measure
+    to: completed
+    exit_code: 0
+    description: Nothing uncovered remains, or the iteration budget is spent.
+
+  - from: measure
+    to: cover
+    exit_code: 10
+    description: Uncovered library methods remain; the JaCoCo report was refreshed.
+
+  - from: measure
+    to: fix
+    exit_code: 1
+    condition: visitCount < visits
+    description: Step 1 failed - conversion.json is missing or invalid.
+
+  - from: measure
+    to: fix
+    exit_code: 2
+    condition: visitCount < visits
+    description: Step 2 failed - library.json records no usable jars.
+
+  - from: measure
+    to: fix
+    exit_code: 3
+    condition: visitCount < visits
+    description: Step 3 failed - the Gradle JaCoCo run or the score failed.
+
+  - from: measure
+    to: human-intervention
+    exit_code: 1
+    condition: visitCount >= visits
+    description: Step 1 still fails after the maximum fix passes.
+
+  - from: measure
+    to: human-intervention
+    exit_code: 2
+    condition: visitCount >= visits
+    description: Step 2 still fails after the maximum fix passes.
+
+  - from: measure
+    to: human-intervention
+    exit_code: 3
+    condition: visitCount >= visits
+    description: Step 3 still fails after the maximum fix passes.
+
+  - from: cover
+    to: measure
+    description: A cover pass finished; re-measurement decides the loop.
+
+  - from: fix
+    to: measure
+    description: Repairs applied; measurement re-runs.
+
+  - from: finalize
+    to: completed
+    exit_code: 0
+    description: Style, tests, and the final score all succeeded.
+
+  - from: finalize
+    to: finalize-fix
+    exit_code: 1
+    condition: visitCount < visits
+    description: Step 1 failed - a pipeline record is missing or invalid.
+
+  - from: finalize
+    to: finalize-fix
+    exit_code: 2
+    condition: visitCount < visits
+    description: Step 2 failed - checkstyle failed.
+
+  - from: finalize
+    to: finalize-fix
+    exit_code: 3
+    condition: visitCount < visits
+    description: Step 3 failed - JVM tests with the coverage suite failed.
+
+  - from: finalize
+    to: finalize-fix
+    exit_code: 4
+    condition: visitCount < visits
+    description: Step 4 failed - the scorer rejected its inputs.
+
+  - from: finalize
+    to: human-intervention
+    exit_code: 1
+    condition: visitCount >= visits
+    description: Step 1 still fails after the maximum fix passes.
+
+  - from: finalize
+    to: human-intervention
+    exit_code: 2
+    condition: visitCount >= visits
+    description: Step 2 still fails after the maximum fix passes.
+
+  - from: finalize
+    to: human-intervention
+    exit_code: 3
+    condition: visitCount >= visits
+    description: Step 3 still fails after the maximum fix passes.
+
+  - from: finalize
+    to: human-intervention
+    exit_code: 4
+    condition: visitCount >= visits
+    description: Step 4 still fails after the maximum fix passes.
+
+  - from: finalize-fix
+    to: finalize
+    description: Repairs applied; the finalization steps re-run from the start.
+
+  - from: human-intervention
+    to: execute
+    description: Human requested rework of a pipeline task.
+
+  - from: human-intervention
+    to: measure
+    description: Human requested rework of the coverage loop.
+
+  - from: human-intervention
+    to: finalize
+    description: Human requested rework of finalization.
+
+  - from: human-intervention
+    to: completed
+    description: Human approved the task as complete.
+
+  - from: human-intervention
+    to: cancelled
+    description: Human cancelled the task.
+
+  - from: "*"
+    to: cancelled
+    description: Cancel any non-final task.
