@@ -40,6 +40,12 @@ from utility_scripts.metadata_index import resolve_test_dir
 #: The baseline runs against a personal fork; no reviewers, no labels exist there.
 REPO: str = "kimeta/graalvm-reachability-metadata"
 PUSH_REMOTE: str = "kimeta"
+#: The fork's `master` deliberately carries this workflow's branch rather than
+#: mirroring upstream. The run branch is created from the HEAD of the source
+#: checkout, so basing on an upstream mirror would put all of the workflow's own
+#: infrastructure commits into the pull request diff; against this base the diff
+#: is exactly the tests one run generated, which is what the arm is read for.
+#: Re-syncing the fork's master to upstream breaks that and needs --base-branch.
 BASE_BRANCH: str = "master"
 
 FINAL_SCORE_FILENAME: str = "final-score.json"
