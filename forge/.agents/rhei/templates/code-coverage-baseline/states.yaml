@@ -195,6 +195,18 @@ states:
       - Do not measure or claim coverage yourself: deterministic re-measurement
         runs right after this state and decides the loop.
 
+      Repository format, which is not library guidance and which finalization
+      enforces after the loop has already spent its budget:
+      - Every `.java` file must open with the repository's CC0 header comment,
+        exactly as `gradle/checkstyle.xml` `RegexpHeader` spells it. Checkstyle
+        rejects the file otherwise, and it runs only at finalization.
+      - LF line endings, no tab characters, newline at end of file.
+      - The suite runs on JUnit 5 with AssertJ, inheriting the test project's
+        `testImplementation` dependencies.
+      - Read the coordinate's existing `src/test` sources as the model for the
+        header, package naming, and test idiom. They are read-only, and they
+        carry no instruction about what to cover - use them for shape only.
+
       Artifact paths in this task, including the one below, are relative to the
       Rhei workspace root: the directory holding `states.yaml` and
       `index.rhei.md`, which is
