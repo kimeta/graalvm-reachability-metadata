@@ -255,8 +255,8 @@
     suffix deletes the head branch of an earlier run's pull request for this
     same coordinate and takes its place.
   - Open a pull request against `{{repo}}` base `{{pr_base_branch}}`.
-  - Include source issue, coordinate, coverage suite path, separate baseline and
-    final API/deep JaCoCo coverage, the two phases combined, coverage deltas,
+  - Include source issue, coordinate, coverage suite path, baseline and final
+    API/deep JaCoCo coverage against one shared denominator, coverage deltas,
     sampled guidance evidence, completed, skipped, exhausted, or failed targets,
     validation commands, and per-phase token usage in the PR body.
   - The helper writes all of that from `final-metrics.json` and the Rhei

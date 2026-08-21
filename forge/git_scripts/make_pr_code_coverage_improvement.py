@@ -5,8 +5,8 @@
 
 """Publish schema-validated code coverage improvement evidence.
 
-The PR body reports each guidance phase against its JaCoCo-reportable method
-count, the two phases combined, and per-phase token usage. Per-target rosters
+The PR body reports the run as sequential checkpoints against one shared
+denominator, every library method JaCoCo reports, plus per-phase token usage. Per-target rosters
 and validation commands stay in the finalization artifacts, which is where a
 reviewer reads them from
 (§WF-code-coverage-improvement, §AR-forge-verification-publication-boundary).
@@ -65,54 +65,73 @@ def _total_percent(covered: int, total: int) -> float:
     return round(100 * covered / total, 2) if total else 0.0
 
 
-def _reportable_total(snapshot: dict[str, Any]) -> int:
-    """The denominator JaCoCo can actually rule on.
+#: Checkpoint name -> the row label a reader sees.
+CHECKPOINT_LABELS: dict[str, str] = {
+    "runStart": "Run start",
+    "afterApiPhase": "After Simple Jacoco guidance phase",
+    "final": "After PGO guidance phase (final)",
+}
 
-    The API inventory carries both `total`, every inventory entry, and
-    `measured`, the entries JaCoCo reports at all. The difference is methods no
-    run can ever cover, so dividing by `total` understates the phase and
-    contradicts the `coveragePercent` the same document records. The deep
-    snapshot has no such split and falls back to `total`.
+#: Phase name -> the row label a reader sees.
+PHASE_LABELS: dict[str, str] = {
+    "api": "Simple Jacoco guidance phase",
+    "deep": "PGO guidance phase",
+}
+
+
+def _universe_lines(run: dict[str, Any]) -> list[str]:
+    """The run as one timeline on one denominator.
+
+    Every figure divides by the complete count of library methods JaCoCo can
+    rule on, so each phase's gain is the distance from the checkpoint the
+    previous phase ended on and the phase gains sum to the run's gain. Reporting
+    a phase against its own roster instead put two different instants of the run
+    on two different scales, which is what made the figures read as inconsistent
+    (§WF-code-coverage-improvement.4.1).
     """
-    return snapshot.get("measured", snapshot["total"])
-
-
-def _jacoco_lines(label: str, evidence: dict[str, Any]) -> list[str]:
-    baseline: dict[str, Any] = evidence["baseline"]
-    final: dict[str, Any] = evidence["final"]
-    total: int = _reportable_total(final)
-    baseline_percent: float = _total_percent(baseline["covered"], total)
-    final_percent: float = _total_percent(final["covered"], total)
-    return [
-        f"### {label}",
+    universe: int = run["universe"]
+    checkpoints: list[dict[str, Any]] = run["checkpoints"]
+    lines: list[str] = [
+        f"Every figure divides by the same denominator: the {universe} library "
+        f"methods JaCoCo can rule on, made up of {run['apiUniverse']} public API "
+        f"methods and {run['deepUniverse']} internal methods, which are disjoint "
+        "by construction. Each checkpoint is counted over that one frozen set of "
+        "method ids from a single JaCoCo report, so every phase starts where the "
+        "previous phase ended.",
         "",
-        f"- Baseline: {baseline['covered']}/{total} ({baseline_percent}%)",
-        f"- Final: {final['covered']}/{total} ({final_percent}%)",
-        f"- Delta: {_signed(round(final_percent - baseline_percent, 2))}pp",
-        f"- Remaining uncovered: {total - final['covered']}",
+        "| Checkpoint | Covered | Share |",
+        "|---|--:|--:|",
     ]
-
-
-def _combined_lines(api: dict[str, Any], deep: dict[str, Any]) -> list[str]:
-    """API and deep coverage as one number.
-
-    The two universes are disjoint by construction: the deep universe holds
-    exactly the library methods the API inventory does not, so their measured
-    counts and covered counts add without double counting.
-    """
-    total: int = _reportable_total(api["final"]) + _reportable_total(deep["final"])
-    baseline: int = api["baseline"]["covered"] + deep["baseline"]["covered"]
-    final: int = api["final"]["covered"] + deep["final"]["covered"]
-    baseline_percent: float = _total_percent(baseline, total)
-    final_percent: float = _total_percent(final, total)
-    return [
-        "### Both phases combined",
+    lines += [
+        f"| {CHECKPOINT_LABELS[point['name']]} | {point['covered']}/{universe} "
+        f"| {point['coveragePercent']}% |"
+        for point in checkpoints
+    ]
+    lines.append("")
+    lines += [
+        f"- {PHASE_LABELS[phase['name']]}: {_signed(phase['covered'])} methods, "
+        f"{_signed(phase['coveragePercentagePoints'])}pp"
+        for phase in run["phases"]
+    ]
+    first: dict[str, Any] = checkpoints[0]
+    last: dict[str, Any] = checkpoints[-1]
+    lines += [
+        f"- Run total: {_signed(last['covered'] - first['covered'])} methods, "
+        f"{_signed(round(last['coveragePercent'] - first['coveragePercent'], 2))}pp",
+        f"- Remaining uncovered: {last['uncovered']} of {universe}",
         "",
-        f"- Baseline: {baseline}/{total} ({baseline_percent}%)",
-        f"- Final: {final}/{total} ({final_percent}%)",
-        f"- Delta: {_signed(round(final_percent - baseline_percent, 2))}pp",
-        f"- Remaining uncovered: {total - final}",
+        "Where the coverage and the remaining headroom sit:",
+        "",
+        "| Method universe | Run start | Final | Still uncovered |",
+        "|---|--:|--:|--:|",
+        f"| Public API | {first['apiCovered']}/{run['apiUniverse']} | "
+        f"{last['apiCovered']}/{run['apiUniverse']} | "
+        f"{run['apiUniverse'] - last['apiCovered']} |",
+        f"| Internal | {first['deepCovered']}/{run['deepUniverse']} | "
+        f"{last['deepCovered']}/{run['deepUniverse']} | "
+        f"{run['deepUniverse'] - last['deepCovered']} |",
     ]
+    return lines
 
 
 def _phase_name(file_name: str) -> str:
@@ -203,11 +222,7 @@ def build_pull_request_body(
         "## JaCoCo coverage",
         "",
     ]
-    lines += _jacoco_lines("Simple Jacoco guidance phase", metrics["apiJacoco"])
-    lines += [""] + _jacoco_lines(
-        "PGO guidance phase", metrics["deepJacoco"]
-    )
-    lines += [""] + _combined_lines(metrics["apiJacoco"], metrics["deepJacoco"])
+    lines += _universe_lines(metrics["runCoverage"])
     lines += [""]
     token_lines: list[str] = _token_lines(token_usage or [])
     if token_lines:
