@@ -18,7 +18,7 @@ class PublisherTests(unittest.TestCase):
 
     def _metrics(self) -> dict:
         return {
-            "schemaVersion": "1.0.0",
+            "schemaVersion": "1.1.0",
             "coordinate": "com.example:demo:1.0.0",
             "coverageSuitePath": "tests/src/com.example/demo/1.0.0/code-coverage-improvement",
             "apiJacoco": {
@@ -98,25 +98,44 @@ class PublisherTests(unittest.TestCase):
                 "./gradlew test -Pcoordinates=com.example:demo:1.0.0"
             ],
             "needsHumanIntervention": True,
+            "runCoverage": {
+                "universe": 30,
+                "apiUniverse": 10,
+                "deepUniverse": 20,
+                "checkpoints": [
+                    {"name": "runStart", "apiCovered": 4, "deepCovered": 2,
+                     "covered": 6, "uncovered": 24, "coveragePercent": 20.0},
+                    {"name": "afterApiPhase", "apiCovered": 8, "deepCovered": 5,
+                     "covered": 13, "uncovered": 17, "coveragePercent": 43.33},
+                    {"name": "final", "apiCovered": 9, "deepCovered": 12,
+                     "covered": 21, "uncovered": 9, "coveragePercent": 70.0},
+                ],
+                "phases": [
+                    {"name": "api", "covered": 7, "coveragePercentagePoints": 23.33},
+                    {"name": "deep", "covered": 8, "coveragePercentagePoints": 26.67},
+                ],
+            },
         }
 
-    def test_body_reports_phase_totals(self) -> None:
+    def test_body_reports_one_denominator_and_sequential_checkpoints(self) -> None:
         body = module.build_pull_request_body(
             "com.example:demo:1.0.0", 8380, self._metrics()
         )
 
-        self.assertIn("### Simple Jacoco guidance phase", body)
-        # `measured`, not `total`: the 6 not-reported entries are methods JaCoCo
-        # can never rule on, so counting them against the run understates it.
-        self.assertIn("Baseline: 4/10 (40.0%)", body)
-        self.assertIn("Final: 8/10 (80.0%)", body)
-        self.assertIn("Delta: +40.0pp", body)
-        self.assertIn("Remaining uncovered: 2", body)
-        self.assertIn("### PGO guidance phase", body)
-        self.assertIn("Final: 12/20 (60.0%)", body)
+        self.assertIn("the 30 library methods JaCoCo can rule on", body)
+        self.assertIn("10 public API methods and 20 internal methods", body)
+        # Each phase starts where the previous one ended, so no checkpoint ever
+        # reads as a fresh baseline lower than the phase before it.
+        self.assertIn("| Run start | 6/30 | 20.0% |", body)
+        self.assertIn("| After Simple Jacoco guidance phase | 13/30 | 43.33% |", body)
+        self.assertIn("| After PGO guidance phase (final) | 21/30 | 70.0% |", body)
+        self.assertIn("- Simple Jacoco guidance phase: +7 methods, +23.33pp", body)
+        self.assertIn("- PGO guidance phase: +8 methods, +26.67pp", body)
+        self.assertIn("- Run total: +15 methods, +50.0pp", body)
+        self.assertIn("- Remaining uncovered: 9 of 30", body)
+        self.assertIn("| Public API | 4/10 | 9/10 | 1 |", body)
+        self.assertIn("| Internal | 2/20 | 12/20 | 8 |", body)
         self.assertNotIn("Sampled PGO", body)
-        self.assertNotIn("84 samples", body)
-
         self.assertIn("Needs human intervention: yes", body)
 
     def test_body_omits_target_rosters_and_validation_commands(self) -> None:
@@ -134,16 +153,15 @@ class PublisherTests(unittest.TestCase):
         self.assertNotIn("No public route.", body)
         self.assertNotIn("attempts: 4, last attempted iteration: 5", body)
 
-    def test_body_combines_both_phases(self) -> None:
+    def test_body_carries_no_phase_local_denominator(self) -> None:
+        """Two phases on their own scales are what made the figures inconsistent."""
         body = module.build_pull_request_body(
             "com.example:demo:1.0.0", 8380, self._metrics()
         )
 
-        # Disjoint universes, so 10 measured API + 20 deep methods add up.
-        self.assertIn("### Both phases combined", body)
-        self.assertIn("Baseline: 9/30 (30.0%)", body)
-        self.assertIn("Final: 20/30 (66.67%)", body)
-        self.assertIn("Delta: +36.67pp", body)
+        self.assertNotIn("Both phases combined", body)
+        for phase_local in ("/10 (", "/20 (", "8/10", "12/20 |  "):
+            self.assertNotIn(phase_local, body)
 
     def test_body_reports_token_usage_in_workflow_order(self) -> None:
         usage = [
